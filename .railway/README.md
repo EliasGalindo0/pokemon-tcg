@@ -14,10 +14,10 @@ railway login
 railway link
 railway config plan
 railway config apply
-railway up --service app
-railway domain --service app
+railway up --service pokemon-tcg
+railway domain --service pokemon-tcg
 ```
 
-`railway link` liga esta pasta a um projeto. Se ainda não existir, o CLI pede para criar um. `railway config plan` só mostra o que seria criado. `railway config apply` cria a aplicação, o Postgres, o Redis e o volume depois da confirmação. `railway up` envia o código e faz o deploy do serviço `app`. `railway domain` gera o endereço público `*.up.railway.app`.
+`railway link` liga esta pasta a um projeto. Se ainda não existir, o CLI pede para criar um. `railway config plan` só mostra o que seria criado. `railway config apply` cria o Postgres, o Redis e o volume e configura o serviço `pokemon-tcg`. `railway up --service pokemon-tcg` envia o código. `railway domain --service pokemon-tcg` gera o endereço público `*.up.railway.app`.
 
 `DATABASE_URL` e `REDIS_URL` vêm do Postgres e do Redis do próprio projeto. Não copie as URLs do `.env` local para o Railway.

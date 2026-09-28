@@ -1,11 +1,12 @@
-import { defineRailway, postgres, project, redis, service, volume } from "railway/iac";
+import { defineRailway, github, postgres, project, redis, service, volume } from "railway/iac";
 
 export default defineRailway(() => {
   const db = postgres("postgres");
   const cache = redis("redis");
   const uploads = volume("uploads", { sizeMB: 1024 });
 
-  const app = service("app", {
+  const app = service("pokemon-tcg", {
+    source: github("EliasGalindo0/pokemon-tcg"),
     start: "node server.js",
     preDeploy:
       "node /opt/prisma-cli/node_modules/prisma/build/index.js migrate deploy",
