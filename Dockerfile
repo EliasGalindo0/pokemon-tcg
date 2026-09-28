@@ -9,22 +9,28 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://pokedex:pokedex@postgres:5432/pokedex?schema=public"
-RUN npx prisma generate && npm run build
+RUN npm run build && node scripts/bundle-prisma-cli.mjs
 
 FROM node:22-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-RUN addgroup -S nodejs && adduser -S nextjs -G nodejs
+RUN apk add --no-cache openssl su-exec \
+  && addgroup -S nodejs && adduser -S nextjs -G nodejs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=builder /app/prisma ./prisma
+COPY --from=builder /app/package.json ./package.json
 COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
 COPY --from=builder /app/node_modules/@prisma ./node_modules/@prisma
-RUN mkdir -p /app/public/uploads && chown -R nextjs:nodejs /app
-USER nextjs
+COPY --from=builder /opt/prisma-cli /opt/prisma-cli
+COPY scripts/docker-entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh \
+  && mkdir -p /app/public/uploads \
+  && chown -R nextjs:nodejs /app /opt/prisma-cli
 EXPOSE 3000
 ENV PORT=3000
 ENV HOSTNAME=0.0.0.0
+ENTRYPOINT ["/entrypoint.sh"]
 CMD ["node", "server.js"]
