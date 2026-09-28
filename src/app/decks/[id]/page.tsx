@@ -45,14 +45,15 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
         <DeleteCardButton action={deleteDeckAction.bind(null, deck.id)} label="Excluir deck" confirm="Excluir este deck?" />
       </div>
 
-      <div className="grid gap-8 lg:grid-cols-[18rem_1fr]">
+      <DeckBuilder deckId={deck.id} entries={deck.entries} />
+
+      <div className="max-w-sm">
         <DeckForm
           action={updateDeckAction.bind(null, deck.id)}
           submitLabel="Salvar dados"
           name={deck.name}
           format={deck.format}
         />
-        <DeckBuilder deckId={deck.id} entries={deck.entries} />
       </div>
     </div>
   );
