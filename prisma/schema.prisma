@@ -1,0 +1,124 @@
+// Coleção de cartas de Pokémon TCG.
+// Cada Card é um lote idêntico (mesma carta, condição e idioma).
+// Quantidades diferentes de condição ficam em registros separados.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Rarity {
+  COMMON
+  UNCOMMON
+  RARE
+  RARE_HOLO
+  REVERSE_HOLO
+  DOUBLE_RARE
+  ULTRA_RARE
+  ILLUSTRATION_RARE
+  SPECIAL_ILLUSTRATION_RARE
+  HYPER_RARE
+  SECRET_RARE
+  SHINY_RARE
+  AMAZING_RARE
+  RADIANT_RARE
+  ACE_SPEC
+  PROMO
+}
+
+enum Condition {
+  MINT
+  NEAR_MINT
+  LIGHTLY_PLAYED
+  MODERATELY_PLAYED
+  HEAVILY_PLAYED
+  DAMAGED
+}
+
+enum Language {
+  EN
+  PT_BR
+  JA
+  ES
+  FR
+  DE
+  IT
+  KO
+  ZH_TW
+  ZH_CN
+}
+
+enum DeckFormat {
+  STANDARD
+  EXPANDED
+  UNLIMITED
+  OTHER
+}
+
+model Set {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  code      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  cards     Card[]
+}
+
+model Card {
+  id            String    @id @default(cuid())
+  name          String
+  setId         String
+  set           Set       @relation(fields: [setId], references: [id], onDelete: Restrict)
+  cardNumber    String?
+  rarity        Rarity
+  condition     Condition
+  language      Language  @default(PT_BR)
+  marketValue   Decimal   @db.Decimal(10, 2)
+  purchasePrice Decimal?  @db.Decimal(10, 2)
+  quantity      Int       @default(1)
+  imageUrl      String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  deckEntries   DeckEntry[]
+
+  @@index([name])
+  @@index([setId])
+  @@index([rarity])
+  @@index([condition])
+  @@index([createdAt])
+}
+
+model Deck {
+  id        String     @id @default(cuid())
+  name      String
+  format    DeckFormat @default(STANDARD)
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  entries   DeckEntry[]
+
+  @@index([name])
+}
+
+model DeckEntry {
+  id         String   @id @default(cuid())
+  deckId     String
+  deck       Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cardId     String?
+  card       Card?    @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  tcgId      String?
+  name       String?
+  setName    String?
+  cardNumber String?
+  imageUrl   String?
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([deckId, cardId])
+  @@unique([deckId, tcgId])
+  @@index([cardId])
+}

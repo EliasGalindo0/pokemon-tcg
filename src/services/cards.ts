@@ -1,0 +1,201 @@
+import { Prisma, type Card, type Set as CardSet } from "@prisma/client";
+import { AppError } from "@/lib/errors";
+import { RARITY_RANK } from "@/lib/labels";
+import { prisma } from "@/lib/prisma";
+import { bumpCacheVersion, cacheGet, cacheSet, getCacheVersion } from "@/lib/redis";
+import { fillMissingImages } from "@/services/catalog";
+import { withSetLogos } from "@/services/set-logos";
+import { resolveSet } from "@/services/sets";
+import { deleteUpload } from "@/lib/uploads";
+import type { CardDTO, CardListResult, CardPayload, CardQuery } from "@/types/card";
+
+export const PAGE_SIZE = 50;
+
+type CardWithSet = Card & { set: CardSet };
+
+export function toCardDto(card: CardWithSet): CardDTO {
+  return {
+    id: card.id,
+    name: card.name,
+    cardNumber: card.cardNumber,
+    rarity: card.rarity,
+    condition: card.condition,
+    language: card.language,
+    marketValue: card.marketValue.toString(),
+    purchasePrice: card.purchasePrice?.toString() ?? null,
+    quantity: card.quantity,
+    imageUrl: card.imageUrl,
+    createdAt: card.createdAt.toISOString(),
+    updatedAt: card.updatedAt.toISOString(),
+    set: { id: card.set.id, name: card.set.name, code: card.set.code },
+  };
+}
+
+function rarityOrderSql() {
+  const branches = Object.entries(RARITY_RANK)
+    .map(([rarity, rank]) => `WHEN '${rarity}' THEN ${rank}`)
+    .join(" ");
+  return `CASE "rarity" ${branches} ELSE 0 END`;
+}
+
+function whereFrom(query: CardQuery): Prisma.CardWhereInput {
+  return {
+    ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
+    ...(query.setId ? { setId: query.setId } : {}),
+    ...(query.rarity ? { rarity: query.rarity } : {}),
+    ...(query.condition ? { condition: query.condition } : {}),
+  };
+}
+
+function money(value: number) {
+  return new Prisma.Decimal(value.toFixed(2));
+}
+
+export async function listCards(query: CardQuery): Promise<CardListResult> {
+  await fillMissingImages();
+  const version = await getCacheVersion();
+  const key = `v${version}:cards:v3:${JSON.stringify(query)}`;
+  const cached = await cacheGet<CardListResult>(key);
+  if (cached) return cached;
+
+  const where = whereFrom(query);
+  const total = await prisma.card.count({ where });
+  const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(query.page, pageCount);
+
+  const cards = await prisma.card.findMany({
+    where,
+    include: { set: true },
+    orderBy: [{ createdAt: "desc" }, { name: "asc" }],
+    skip: (page - 1) * PAGE_SIZE,
+    take: PAGE_SIZE,
+  });
+
+  const result: CardListResult = {
+    items: await withSetLogos(cards.map(toCardDto)),
+    page,
+    pageSize: PAGE_SIZE,
+    total,
+    pageCount,
+  };
+  await cacheSet(key, result, 60);
+  return result;
+}
+
+export async function getCard(id: string) {
+  await fillMissingImages();
+  const version = await getCacheVersion();
+  const key = `v${version}:card:v3:${id}`;
+  const cached = await cacheGet<CardDTO>(key);
+  if (cached) return cached;
+
+  const card = await prisma.card.findUnique({ where: { id }, include: { set: true } });
+  if (!card) return null;
+  const [dto] = await withSetLogos([toCardDto(card)]);
+  await cacheSet(key, dto, 60);
+  return dto;
+}
+
+export async function createCard(input: CardPayload) {
+  const set = await resolveSet(input);
+  const card = await prisma.card.create({
+    data: {
+      name: input.name,
+      setId: set.id,
+      cardNumber: input.cardNumber ?? null,
+      rarity: input.rarity,
+      condition: input.condition,
+      language: input.language,
+      marketValue: money(input.marketValue),
+      purchasePrice: input.purchasePrice === null ? null : money(input.purchasePrice),
+      quantity: input.quantity,
+      imageUrl: input.imageUrl,
+    },
+    include: { set: true },
+  });
+  await bumpCacheVersion();
+  return toCardDto(card);
+}
+
+export async function updateCard(id: string, input: CardPayload) {
+  const existing = await prisma.card.findUnique({ where: { id } });
+  if (!existing) throw new AppError("Carta não encontrada.", 404);
+
+  const set = await resolveSet(input);
+  const card = await prisma.card.update({
+    where: { id },
+    data: {
+      name: input.name,
+      setId: set.id,
+      cardNumber: input.cardNumber ?? null,
+      rarity: input.rarity,
+      condition: input.condition,
+      language: input.language,
+      marketValue: money(input.marketValue),
+      purchasePrice: input.purchasePrice === null ? null : money(input.purchasePrice),
+      quantity: input.quantity,
+      imageUrl: input.imageUrl,
+    },
+    include: { set: true },
+  });
+
+  if (existing.imageUrl !== input.imageUrl) {
+    await deleteUpload(existing.imageUrl);
+  }
+  await bumpCacheVersion();
+  return toCardDto(card);
+}
+
+export async function deleteCard(id: string) {
+  const existing = await prisma.card.findUnique({ where: { id } });
+  if (!existing) throw new AppError("Carta não encontrada.", 404);
+  await prisma.card.delete({ where: { id } });
+  await deleteUpload(existing.imageUrl);
+  await bumpCacheVersion();
+}
+
+export async function createCards(inputs: CardPayload[]) {
+  if (inputs.length === 0) return 0;
+  const set = await resolveSet(inputs[0]);
+  await prisma.card.createMany({
+    data: inputs.map((input) => ({
+      name: input.name,
+      setId: set.id,
+      cardNumber: input.cardNumber ?? null,
+      rarity: input.rarity,
+      condition: input.condition,
+      language: input.language,
+      marketValue: money(input.marketValue),
+      purchasePrice: input.purchasePrice === null ? null : money(input.purchasePrice),
+      quantity: input.quantity,
+      imageUrl: input.imageUrl,
+    })),
+  });
+  await bumpCacheVersion();
+  return inputs.length;
+}
+
+export async function deleteCards(ids: string[]) {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return;
+  const existing = await prisma.card.findMany({ where: { id: { in: unique } } });
+  if (existing.length === 0) return;
+  await prisma.card.deleteMany({ where: { id: { in: existing.map((card) => card.id) } } });
+  const setIds = [...new Set(existing.map((card) => card.setId))];
+  for (const setId of setIds) {
+    const remaining = await prisma.card.count({ where: { setId } });
+    if (remaining === 0) await prisma.set.delete({ where: { id: setId } });
+  }
+  await Promise.all(existing.map((card) => deleteUpload(card.imageUrl)));
+  await bumpCacheVersion();
+}
+
+export async function rarestCardIds(limit: number) {
+  const rows = await prisma.$queryRaw<{ id: string }[]>`
+    SELECT "id"
+    FROM "Card"
+    ORDER BY ${Prisma.raw(rarityOrderSql())} DESC, "createdAt" DESC
+    LIMIT ${limit}
+  `;
+  return rows.map((row) => row.id);
+}
