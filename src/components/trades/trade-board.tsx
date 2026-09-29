@@ -2,6 +2,7 @@
 
 import { useRef, useState, useTransition } from "react";
 import { setTradeQuantityAction } from "@/actions/trades";
+import { CatalogImg } from "@/components/cards/catalog-img";
 import { TradeOfferDialog } from "@/components/trades/trade-offer-dialog";
 import type { TradeBoard, TradeSlot } from "@/types/trade";
 
@@ -121,8 +122,15 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
                   >
                     <span className={`block aspect-[63/88] ${owned ? "" : "opacity-40 grayscale"}`}>
                       {slot.imageUrl ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img src={slot.imageUrl} alt="" className="h-full w-full object-cover" />
+                        <CatalogImg
+                          src={slot.imageUrl}
+                          className="h-full w-full object-cover"
+                          fallback={
+                            <span className="grid h-full place-items-center bg-navy/5 px-2 text-center text-xs text-muted">
+                              {slot.name}
+                            </span>
+                          }
+                        />
                       ) : (
                         <span className="grid h-full place-items-center px-2 text-center text-xs text-muted">
                           {slot.name}

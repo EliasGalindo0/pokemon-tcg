@@ -1,3 +1,5 @@
+"use client";
+
 import Link from "next/link";
 import { controlClass } from "@/components/ui/field";
 import { CONDITION_LABEL, CONDITIONS, RARITY_LABEL, RARITY_RANK, optionsFrom } from "@/lib/labels";
@@ -5,6 +7,10 @@ import type { SetDTO } from "@/types/card";
 
 const rarityOptions = optionsFrom(RARITY_LABEL, RARITY_RANK);
 const conditionOptions = CONDITIONS.map((value) => ({ value, label: CONDITION_LABEL[value] }));
+
+function submitOnChange(event: React.ChangeEvent<HTMLSelectElement>) {
+  event.currentTarget.form?.requestSubmit();
+}
 
 export function CardFilters({
   sets,
@@ -31,7 +37,12 @@ export function CardFilters({
       </label>
       <label className="md:col-span-3">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Coleção</span>
-        <select name="setId" defaultValue={values.setId ?? ""} className={controlClass}>
+        <select
+          name="setId"
+          defaultValue={values.setId ?? ""}
+          className={controlClass}
+          onChange={submitOnChange}
+        >
           <option value="">Todas</option>
           {sets.map((set) => (
             <option key={set.id} value={set.id}>
@@ -42,7 +53,12 @@ export function CardFilters({
       </label>
       <label className="md:col-span-2">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Raridade</span>
-        <select name="rarity" defaultValue={values.rarity ?? ""} className={controlClass}>
+        <select
+          name="rarity"
+          defaultValue={values.rarity ?? ""}
+          className={controlClass}
+          onChange={submitOnChange}
+        >
           <option value="">Todas</option>
           {rarityOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -53,7 +69,12 @@ export function CardFilters({
       </label>
       <label className="md:col-span-1">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Condição</span>
-        <select name="condition" defaultValue={values.condition ?? ""} className={controlClass}>
+        <select
+          name="condition"
+          defaultValue={values.condition ?? ""}
+          className={controlClass}
+          onChange={submitOnChange}
+        >
           <option value="">Todas</option>
           {conditionOptions.map((option) => (
             <option key={option.value} value={option.value}>
@@ -64,7 +85,12 @@ export function CardFilters({
       </label>
       <label className="md:col-span-2">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Ordenar</span>
-        <select name="sort" defaultValue={values.sort ?? "recent"} className={controlClass}>
+        <select
+          name="sort"
+          defaultValue={values.sort ?? "recent"}
+          className={controlClass}
+          onChange={submitOnChange}
+        >
           <option value="recent">Mais recentes</option>
           <option value="name">Nome A–Z</option>
           <option value="number">Número 0–9</option>

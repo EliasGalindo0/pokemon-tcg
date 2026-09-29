@@ -35,13 +35,19 @@ function localNumber(value: string | number | null | undefined) {
 }
 
 function printedNumber(localId: string, official: number) {
-  return official > 0 ? `${localId}/${official}` : localId;
+  return official > 0 ? `${localId}/${official}` : `${localId}/∞`;
 }
 
-function parseCardNumber(input: string) {
-  const match = input.trim().match(/^(?:#)?0*(\d{1,4})\s*\/\s*0*(\d{1,4})$/);
+function parseCardNumber(input: string): { localId: string; official: number | null; infinite: boolean } | null {
+  const trimmed = input.trim();
+  const infinite = trimmed.match(/^(?:#)?0*(\d{1,4})\s*\/\s*(?:∞|inf(?:inity)?|\*|oo)$/i);
+  if (infinite) {
+    return { localId: infinite[1], official: null, infinite: true };
+  }
+
+  const match = trimmed.match(/^(?:#)?0*(\d{1,4})\s*\/\s*0*(\d{1,4})$/);
   if (!match) return null;
-  return { localId: match[1], official: Number(match[2]) };
+  return { localId: match[1], official: Number(match[2]), infinite: false };
 }
 
 async function readCatalogJson<T>(path: string): Promise<T | null> {
@@ -101,7 +107,9 @@ export async function resolveTradeSetsFromCardNumber(
   language: LanguageValue,
 ): Promise<TradeSetCandidate[]> {
   const parsed = parseCardNumber(query);
-  if (!parsed) throw new AppError("Use o formato do número da carta, ex.: 001/094.", 400);
+  if (!parsed) {
+    throw new AppError("Use o formato do número da carta, ex.: 001/094 ou 016/∞.", 400);
+  }
 
   const lang = catalogLanguage(language);
   const sets = await readCatalogJson<TcgSetBrief[]>(`${lang}/sets`);
@@ -109,24 +117,29 @@ export async function resolveTradeSetsFromCardNumber(
     throw new AppError("Não foi possível listar as coleções do catálogo.", 502);
   }
 
-  const matches = sets.filter(
-    (set) => Boolean(set.id && set.name) && (set.cardCount?.official ?? 0) === parsed.official,
-  );
+  const matches = parsed.infinite
+    ? sets.filter((set) => Boolean(set.id && set.name) && (set.cardCount?.official ?? 0) === 0)
+    : sets.filter(
+        (set) => Boolean(set.id && set.name) && (set.cardCount?.official ?? 0) === parsed.official,
+      );
 
   const candidates: TradeSetCandidate[] = [];
-  for (const brief of matches.slice(0, 12)) {
+  for (const brief of matches.slice(0, parsed.infinite ? 40 : 12)) {
     const set = await readCatalogJson<TcgSet>(`${lang}/sets/${encodeURIComponent(brief.id!)}`);
     if (!set?.id || !set.name || !set.cards?.length) continue;
-    const hasLocal = set.cards.some((card) => localNumber(card.localId) === parsed.localId);
-    if (!hasLocal) continue;
-    const official = set.cardCount?.official ?? parsed.official;
+
+    const matchCard = set.cards.find((card) => localNumber(card.localId) === parsed.localId);
+    if (!matchCard) continue;
+
+    const official = set.cardCount?.official ?? parsed.official ?? 0;
+    const localId = String(matchCard.localId ?? parsed.localId);
     candidates.push({
       tcgSetId: set.id,
       name: set.name,
       logoUrl: catalogImageUrl(set.logo, "low"),
       official,
       total: set.cards.length,
-      sampleNumber: printedNumber(parsed.localId, official),
+      sampleNumber: printedNumber(localId, official),
     });
   }
 

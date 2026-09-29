@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { CatalogImg } from "@/components/cards/catalog-img";
 import { DeleteCardButton } from "@/components/cards/delete-card-button";
 import { TradeBoardView } from "@/components/trades/trade-board";
 import { deleteTradeSetAction } from "@/actions/trades";
@@ -64,8 +65,7 @@ export function TradeTabs({
             </div>
             <div className="flex items-center gap-3">
               {board.logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img src={board.logoUrl} alt="" className="h-12 w-24 object-contain" />
+                <CatalogImg src={board.logoUrl} className="h-12 w-24 object-contain" />
               ) : null}
               {readOnly ? null : (
                 <DeleteCardButton

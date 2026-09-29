@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { createTradeSetAction, searchTradeSetsAction } from "@/actions/trades";
+import { CatalogImg } from "@/components/cards/catalog-img";
 import { Button } from "@/components/ui/button";
 import { controlClass } from "@/components/ui/field";
 import { LANGUAGE_LABEL, LANGUAGES } from "@/lib/labels";
@@ -62,7 +63,7 @@ export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?
           <input
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="001/094"
+            placeholder="001/094 ou 016/∞"
             className={controlClass}
             aria-label="Número da carta da coleção"
           />
@@ -84,7 +85,7 @@ export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?
 
       <p className="text-sm text-muted">
         Informe o número impresso, como <span className="font-medium text-ink">001/094</span>. O segundo valor
-        identifica a coleção (ex.: Fogo Fantasmagórico).
+        identifica a coleção. Promoções com infinito usam <span className="font-medium text-ink">016/∞</span>.
       </p>
 
       {message ? (
@@ -106,8 +107,15 @@ export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?
                   className="flex w-full items-center gap-4 rounded-3xl border border-line bg-card p-4 text-left transition hover:border-navy/30 disabled:opacity-60"
                 >
                   {set.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={set.logoUrl} alt="" className="h-14 w-24 object-contain" />
+                    <CatalogImg
+                      src={set.logoUrl}
+                      className="h-14 w-24 object-contain"
+                      fallback={
+                        <span className="grid h-14 w-24 place-items-center rounded-2xl bg-paper text-xs text-muted">
+                          {set.tcgSetId}
+                        </span>
+                      }
+                    />
                   ) : (
                     <span className="grid h-14 w-24 place-items-center rounded-2xl bg-paper text-xs text-muted">
                       {set.tcgSetId}
