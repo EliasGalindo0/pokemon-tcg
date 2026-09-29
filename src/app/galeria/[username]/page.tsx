@@ -27,9 +27,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params;
   try {
     const owner = await getPublicOwner(username);
-    return { title: `Galeria de ${owner.displayName}` };
+    return { title: `Coleção de ${owner.displayName}` };
   } catch {
-    return { title: "Galeria" };
+    return { title: "Coleção" };
   }
 }
 
@@ -66,7 +66,7 @@ export default async function PublicCollectorGalleryPage({ params, searchParams 
     <div className="space-y-6">
       <div>
         <Link href="/galeria" className="text-sm text-navy hover:underline">
-          Todas as galerias
+          Todas as coleções
         </Link>
       </div>
       <PageHeader

@@ -3,15 +3,16 @@ import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth";
+import { NAV_MY_COLLECTION, PAGE_COLLECTIONS } from "@/lib/site-copy";
 import { listPublicCollectors } from "@/services/public-gallery";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Galerias",
+  title: PAGE_COLLECTIONS,
 };
 
-export default async function PublicGalleriesPage() {
+export default async function PublicCollectionsPage() {
   const user = await getSessionUser();
   const collectors = await listPublicCollectors(user?.id);
 
@@ -19,15 +20,15 @@ export default async function PublicGalleriesPage() {
     <div className="space-y-8">
       <PageHeader
         kicker="Comunidade"
-        title="Galerias públicas"
-        description="Coleções que outros colecionadores liberaram. Para gerenciar as suas, use Minha galeria."
+        title={PAGE_COLLECTIONS}
+        description="Coleções que outros colecionadores tornaram públicas. Para gerenciar as suas, use Minha coleção."
       >
         {user ? (
           <ButtonLink href="/cards" variant="secondary">
-            Minha galeria
+            {NAV_MY_COLLECTION}
           </ButtonLink>
         ) : (
-          <ButtonLink href="/login?next=/conta" variant="secondary">
+          <ButtonLink href="/login?next=/galeria" variant="secondary">
             Entrar
           </ButtonLink>
         )}

@@ -44,7 +44,7 @@ function safeNext(value: FormDataEntryValue | null) {
 }
 
 function homeFor(role: "ADMIN" | "MEMBER") {
-  return role === "ADMIN" ? "/" : "/trocas";
+  return role === "ADMIN" ? "/" : "/cards";
 }
 
 export async function loginAction(_prev: LoginState, formData: FormData): Promise<LoginState> {
@@ -66,7 +66,7 @@ export async function loginAction(_prev: LoginState, formData: FormData): Promis
     next.startsWith("/admin") ||
     next === "/cards/new" ||
     /^\/cards\/[^/]+\/edit$/.test(next);
-  if (user.role !== "ADMIN" && adminOnly) next = "/trocas";
+  if (user.role !== "ADMIN" && adminOnly) next = homeFor("MEMBER");
 
   redirect(next);
 }
@@ -178,7 +178,7 @@ export async function setSetPublicAction(setId: string, isPublic: boolean): Prom
     revalidatePath("/conta");
     return {
       ok: true,
-      message: isPublic ? "Coleção pública — aparece em Galerias." : "Coleção privada.",
+      message: isPublic ? "Coleção pública — aparece em Coleções." : "Coleção privada.",
     };
   } catch (error) {
     return {
