@@ -1,13 +1,13 @@
 import Link from "next/link";
 
-function hrefFor(params: Record<string, string | undefined>, page: number) {
+function hrefFor(basePath: string, params: Record<string, string | undefined>, page: number) {
   const search = new URLSearchParams();
   for (const [key, value] of Object.entries(params)) {
     if (value) search.set(key, value);
   }
   if (page > 1) search.set("page", String(page));
   const query = search.toString();
-  return query ? `/cards?${query}` : "/cards";
+  return query ? `${basePath}?${query}` : basePath;
 }
 
 function PageLink({
@@ -40,10 +40,12 @@ export function Pagination({
   page,
   pageCount,
   params,
+  basePath = "/cards",
 }: {
   page: number;
   pageCount: number;
   params: Record<string, string | undefined>;
+  basePath?: string;
 }) {
   if (pageCount <= 1) return null;
 
@@ -53,7 +55,7 @@ export function Pagination({
 
   return (
     <nav aria-label="Paginação" className="flex flex-wrap items-center justify-center gap-2">
-      <PageLink href={hrefFor(params, page - 1)} disabled={page <= 1}>
+      <PageLink href={hrefFor(basePath, params, page - 1)} disabled={page <= 1}>
         Anterior
       </PageLink>
       {pages.map((item, index) => {
@@ -61,13 +63,13 @@ export function Pagination({
         return (
           <span key={item} className="flex items-center gap-2">
             {previous && item - previous > 1 ? <span className="px-1 text-muted">…</span> : null}
-            <PageLink href={hrefFor(params, item)} current={item === page}>
+            <PageLink href={hrefFor(basePath, params, item)} current={item === page}>
               {item}
             </PageLink>
           </span>
         );
       })}
-      <PageLink href={hrefFor(params, page + 1)} disabled={page >= pageCount}>
+      <PageLink href={hrefFor(basePath, params, page + 1)} disabled={page >= pageCount}>
         Próxima
       </PageLink>
     </nav>

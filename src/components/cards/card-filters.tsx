@@ -9,12 +9,16 @@ const conditionOptions = CONDITIONS.map((value) => ({ value, label: CONDITION_LA
 export function CardFilters({
   sets,
   values,
+  action = "/cards",
+  clearHref = "/cards",
 }: {
   sets: SetDTO[];
   values: { q?: string; setId?: string; rarity?: string; condition?: string; sort?: string };
+  action?: string;
+  clearHref?: string;
 }) {
   return (
-    <form action="/cards" className="grid gap-3 rounded-2xl border border-line bg-card p-4 md:grid-cols-12">
+    <form action={action} className="grid gap-3 rounded-2xl border border-line bg-card p-4 md:grid-cols-12">
       <label className="md:col-span-4">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Nome</span>
         <input
@@ -70,7 +74,7 @@ export function CardFilters({
         <button type="submit" className="rounded-full bg-navy px-4 py-2 text-sm font-medium text-paper">
           Filtrar
         </button>
-        <Link href="/cards" className="text-sm text-muted underline-offset-4 hover:underline">
+        <Link href={clearHref} className="text-sm text-muted underline-offset-4 hover:underline">
           Limpar filtros
         </Link>
       </div>

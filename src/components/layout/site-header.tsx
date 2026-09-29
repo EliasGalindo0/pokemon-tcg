@@ -53,9 +53,14 @@ export async function SiteHeader() {
               <NavLink href="/trocas" tone="dark">
                 Trocas
               </NavLink>
-              <NavLink href="/cards" tone="dark">
-                Galeria
+              <NavLink href="/galeria" tone="dark">
+                Galerias
               </NavLink>
+              {user ? (
+                <NavLink href="/cards" tone="dark">
+                  Minha galeria
+                </NavLink>
+              ) : null}
               {admin ? (
                 <NavLink href="/decks" tone="dark">
                   Decks

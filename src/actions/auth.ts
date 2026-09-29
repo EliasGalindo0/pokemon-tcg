@@ -15,6 +15,7 @@ import {
   inviteUser,
   listUsers,
   resetUserPassword,
+  setCollectionPublic,
   setUserActive,
   updateOwnCredentials,
   type InviteCredentials,
@@ -165,4 +166,24 @@ export async function updateAccountAction(
 export async function listUsersAction() {
   await requireAdmin();
   return listUsers();
+}
+
+export async function setCollectionPublicAction(collectionPublic: boolean): Promise<UserActionState> {
+  try {
+    const user = await requireUser();
+    await setCollectionPublic(user.id, collectionPublic);
+    revalidatePath("/", "layout");
+    revalidatePath("/galeria");
+    revalidatePath("/conta");
+    return {
+      ok: true,
+      message: collectionPublic
+        ? "Sua coleção ficou pública. Visitantes podem vê-la em Galerias."
+        : "Sua coleção ficou privada.",
+    };
+  } catch (error) {
+    return {
+      message: error instanceof AppError ? error.message : "Não foi possível atualizar a privacidade.",
+    };
+  }
 }

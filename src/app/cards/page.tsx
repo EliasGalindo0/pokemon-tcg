@@ -1,18 +1,20 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { CardFilters } from "@/components/cards/card-filters";
 import { CardTile } from "@/components/cards/card-tile";
 import { Pagination } from "@/components/cards/pagination";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
-import { getSessionUser, isAdmin } from "@/lib/auth";
+import { requireUserPage } from "@/lib/auth-page";
 import { parseCardQuery } from "@/lib/card-query";
-import { listCards, PAGE_SIZE } from "@/services/cards";
+import { isAdmin } from "@/lib/auth";
+import { listCards } from "@/services/cards";
 import { listSets } from "@/services/sets";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Galeria",
+  title: "Minha galeria",
 };
 
 export default async function GalleryPage({
@@ -27,16 +29,11 @@ export default async function GalleryPage({
     page?: string;
   }>;
 }) {
-  const user = await getSessionUser();
+  const user = await requireUserPage("/cards");
   const admin = await isAdmin();
   const raw = await searchParams;
   const query = parseCardQuery(raw);
-  const [sets, result] = await Promise.all([
-    user ? listSets(user.id) : [],
-    user
-      ? listCards(user.id, query)
-      : { items: [], page: 1, pageSize: PAGE_SIZE, total: 0, pageCount: 1 },
-  ]);
+  const [sets, result] = await Promise.all([listSets(user.id), listCards(user.id, query)]);
   const hasFilters = Boolean(
     query.q || query.setId || query.rarity || query.condition || (query.sort && query.sort !== "recent"),
   );
@@ -54,15 +51,46 @@ export default async function GalleryPage({
     <div className="space-y-6">
       <PageHeader
         kicker="Cartas"
-        title="Galeria"
-        description={result.total === 0 ? "Nenhum item" : `Mostrando ${start}–${end} de ${result.total} itens`}
+        title="Minha galeria"
+        description={
+          result.total === 0
+            ? "Nenhum item"
+            : `Mostrando ${start}–${end} de ${result.total} itens${
+                user.collectionPublic ? " · coleção pública" : " · coleção privada"
+              }`
+        }
       >
-        {admin ? (
-          <ButtonLink href="/cards/new" variant="secondary">
-            Nova carta
+        <div className="flex flex-wrap gap-2">
+          {admin ? (
+            <ButtonLink href="/cards/new" variant="secondary">
+              Nova carta
+            </ButtonLink>
+          ) : null}
+          <ButtonLink href="/conta" variant="secondary">
+            Privacidade
           </ButtonLink>
-        ) : null}
+        </div>
       </PageHeader>
+
+      <p className="text-sm text-muted">
+        {user.collectionPublic ? (
+          <>
+            Visitantes veem esta coleção em{" "}
+            <Link href={`/galeria/${user.username}`} className="text-navy hover:underline">
+              Galerias
+            </Link>
+            .
+          </>
+        ) : (
+          <>
+            Sua coleção está privada. Em{" "}
+            <Link href="/conta" className="text-navy hover:underline">
+              Conta
+            </Link>{" "}
+            você pode torná-la pública.
+          </>
+        )}
+      </p>
 
       <CardFilters
         sets={sets}
@@ -83,7 +111,7 @@ export default async function GalleryPage({
               ? "Nenhuma carta combina com esses filtros."
               : "Abra uma coleção no álbum e marque as cartas que você tem."}
           </p>
-          {hasFilters ? null : (
+          {hasFilters || !admin ? null : (
             <div className="mt-6">
               <ButtonLink href="/album">Abrir álbum</ButtonLink>
             </div>

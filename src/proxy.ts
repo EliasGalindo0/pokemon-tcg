@@ -2,14 +2,13 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./lib/auth-cookie";
 
-const AUTH_PREFIXES = ["/cards/new", "/decks", "/ofertas", "/album", "/admin", "/conta"];
+const AUTH_PREFIXES = ["/cards", "/decks", "/ofertas", "/album", "/admin", "/conta"];
 
 function needsAuth(pathname: string) {
   if (pathname === "/") return true;
   if (AUTH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return true;
   }
-  if (/^\/cards\/[^/]+\/edit$/.test(pathname)) return true;
   return false;
 }
 
@@ -44,6 +43,8 @@ export const config = {
     "/conta",
     "/trocas",
     "/trocas/:path*",
+    "/galeria",
+    "/galeria/:path*",
     "/login",
   ],
 };

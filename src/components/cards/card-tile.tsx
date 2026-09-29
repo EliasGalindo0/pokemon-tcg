@@ -5,12 +5,13 @@ import { formatMoney } from "@/lib/format";
 import { CONDITION_LABEL } from "@/lib/labels";
 import type { CardDTO } from "@/types/card";
 
-export function CardTile({ card }: { card: CardDTO }) {
+export function CardTile({ card, href }: { card: CardDTO; href?: string }) {
   const setLine = card.cardNumber ?? card.set.name;
+  const link = href ?? `/cards/${card.id}`;
 
   return (
     <article className="rounded-2xl border border-line bg-card shadow-[0_16px_40px_-28px_rgba(28,25,23,0.7)] transition hover:-translate-y-0.5 hover:shadow-[0_20px_40px_-24px_rgba(28,25,23,0.55)]">
-      <Link href={`/cards/${card.id}`} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
+      <Link href={link} className="block focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-navy">
         <div className="relative">
           <div className="aspect-[5/7] overflow-hidden rounded-t-2xl bg-navy">
             {card.imageUrl ? (

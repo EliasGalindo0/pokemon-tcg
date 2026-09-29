@@ -14,6 +14,7 @@ export type UserDTO = {
   role: "ADMIN" | "MEMBER";
   active: boolean;
   mustChangeCredentials: boolean;
+  collectionPublic: boolean;
   createdAt: string;
   updatedAt: string;
 };
@@ -31,6 +32,7 @@ function toDto(user: {
   role: "ADMIN" | "MEMBER";
   active: boolean;
   mustChangeCredentials: boolean;
+  collectionPublic: boolean;
   createdAt: Date;
   updatedAt: Date;
 }): UserDTO {
@@ -41,6 +43,7 @@ function toDto(user: {
     role: user.role,
     active: user.active,
     mustChangeCredentials: user.mustChangeCredentials,
+    collectionPublic: user.collectionPublic,
     createdAt: user.createdAt.toISOString(),
     updatedAt: user.updatedAt.toISOString(),
   };
@@ -240,4 +243,10 @@ export async function updateOwnCredentials(
       },
     }),
   );
+}
+
+export async function setCollectionPublic(userId: string, collectionPublic: boolean) {
+  const user = await prisma.user.findUnique({ where: { id: userId } });
+  if (!user || !user.active) throw new AppError("Usuário não encontrado.", 404);
+  return toDto(await prisma.user.update({ where: { id: userId }, data: { collectionPublic } }));
 }
