@@ -69,7 +69,7 @@ export default async function DashboardPage() {
           detail={
             avgCompletion !== null
               ? `Média ${avgCompletion}% completa`
-              : "Sets cadastrados na coleção"
+              : "Sets na sua coleção"
           }
         />
         <StatCard label="Decks" value={String(dashboard.deckCount)} detail="Baralhos jogáveis" />
@@ -149,7 +149,7 @@ export default async function DashboardPage() {
                 </p>
               </div>
               <Link href="/cards" className="text-sm text-navy hover:underline">
-                Abrir coleção
+                Minha coleção
               </Link>
             </div>
             {dashboard.sets.length === 0 ? (

@@ -19,7 +19,7 @@ export default async function LoginPage({
   const { next } = await searchParams;
   if (user) {
     if (user.mustChangeCredentials) redirect("/conta");
-    redirect(user.role === "ADMIN" ? next || "/" : next || "/trocas");
+    redirect(user.role === "ADMIN" ? next || "/" : next || "/cards");
   }
 
   return (

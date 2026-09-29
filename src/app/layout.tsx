@@ -4,6 +4,7 @@ import { Pokeball } from "@/components/brand/pokeball";
 import { SiteHeader } from "@/components/layout/site-header";
 import { PwaRegister } from "@/components/pwa/pwa-register";
 import { enforceCredentialChange } from "@/lib/enforce-credentials";
+import { APP_BRAND, APP_TAGLINE } from "@/lib/site-copy";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -18,15 +19,15 @@ const fraunces = Fraunces({
 
 export const metadata: Metadata = {
   title: {
-    default: "Álbum",
-    template: "%s · Álbum",
+    default: APP_BRAND,
+    template: `%s · ${APP_BRAND}`,
   },
-  description: "Coleção, álbum e decks de Pokémon TCG.",
-  applicationName: "Álbum",
+  description: "Coleção, trocas e decks de Pokémon TCG.",
+  applicationName: APP_BRAND,
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "Álbum",
+    title: APP_BRAND,
   },
   formatDetection: {
     telephone: false,
@@ -62,7 +63,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
         </main>
         <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 pb-8 text-sm text-muted">
           <Pokeball className="h-5 w-5" />
-          <span>Álbum · coleção e decks de Pokémon TCG</span>
+          <span>{APP_BRAND} · {APP_TAGLINE}</span>
         </footer>
         <PwaRegister />
       </body>

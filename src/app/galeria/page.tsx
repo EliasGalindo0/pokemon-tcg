@@ -3,12 +3,13 @@ import { CollectorList } from "@/components/collectors/collector-list";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { getSessionUser } from "@/lib/auth";
+import { NAV_MY_COLLECTION, PAGE_COLLECTIONS } from "@/lib/site-copy";
 import { listPublicCollectors } from "@/services/public-gallery";
 
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "Coleções",
+  title: PAGE_COLLECTIONS,
 };
 
 function collectorMeta(collector: {
@@ -42,14 +43,14 @@ export default async function PublicCollectionsPage() {
       <PageHeader
         kicker="Comunidade"
         title="Coleções públicas"
-        description="Primeiro escolha o colecionador. Depois entre na coleção dele para ver as cartas públicas e o que ele tem para trocar."
+        description="Escolha um colecionador para ver cartas públicas e o que ele tem para troca."
       >
         {user ? (
           <ButtonLink href="/cards" variant="secondary">
-            Minha coleção
+            {NAV_MY_COLLECTION}
           </ButtonLink>
         ) : (
-          <ButtonLink href="/login?next=/conta" variant="secondary">
+          <ButtonLink href="/login?next=/galeria" variant="secondary">
             Entrar
           </ButtonLink>
         )}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
 import { CatalogImg } from "@/components/cards/catalog-img";
+import { ButtonLink } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import type { AlbumView } from "@/types/album";
 import type { SetDTO } from "@/types/card";
@@ -14,12 +15,14 @@ export function MyCollectionTabs({
   album,
   language,
   canAddSets,
+  showSearchLink = false,
 }: {
   sets: SetDTO[];
   activeId: string | null;
   album: AlbumView | null;
   language: string;
   canAddSets: boolean;
+  showSearchLink?: boolean;
 }) {
   const router = useRouter();
 
@@ -29,15 +32,13 @@ export function MyCollectionTabs({
         <h2 className="font-display text-3xl">Nenhuma coleção cadastrada</h2>
         <p className="mx-auto mt-2 max-w-md text-sm text-muted">
           {canAddSets
-            ? "Busque uma coleção no Álbum e marque as cartas que você tem — elas aparecem aqui em abas."
+            ? "Busque uma coleção no catálogo e marque as cartas que você tem — elas aparecem aqui em abas."
             : "Quando você receber cartas, as coleções aparecem aqui."}
         </p>
         {canAddSets ? (
-          <p className="mt-6">
-            <Link href="/album" className="text-navy hover:underline">
-              Abrir Álbum
-            </Link>
-          </p>
+          <div className="mt-6">
+            <ButtonLink href="/cards?buscar=1">Buscar coleção</ButtonLink>
+          </div>
         ) : null}
       </section>
     );
@@ -45,28 +46,35 @@ export function MyCollectionTabs({
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Minhas coleções">
-        {sets.map((set) => {
-          const selected = set.id === activeId;
-          return (
-            <button
-              key={set.id}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => router.push(`/cards?tab=${set.id}&language=${language}`)}
-              className={`rounded-full px-3 py-1.5 text-sm transition ${
-                selected ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
-              }`}
-            >
-              {set.name}
-              {typeof set.cardCount === "number" ? (
-                <span className="ml-1.5 text-xs opacity-70">· {set.cardCount}</span>
-              ) : null}
-              {set.isPublic ? <span className="ml-1 text-[10px] uppercase opacity-70">público</span> : null}
-            </button>
-          );
-        })}
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Minhas coleções">
+          {sets.map((set) => {
+            const selected = set.id === activeId;
+            return (
+              <button
+                key={set.id}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                onClick={() => router.push(`/cards?tab=${set.id}&language=${language}`)}
+                className={`rounded-full px-3 py-1.5 text-sm transition ${
+                  selected ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
+                }`}
+              >
+                {set.name}
+                {typeof set.cardCount === "number" ? (
+                  <span className="ml-1.5 text-xs opacity-70">· {set.cardCount}</span>
+                ) : null}
+                {set.isPublic ? <span className="ml-1 text-[10px] uppercase opacity-70">público</span> : null}
+              </button>
+            );
+          })}
+        </div>
+        {showSearchLink ? (
+          <Link href="/cards?buscar=1" className="text-sm text-navy hover:underline">
+            + Coleção
+          </Link>
+        ) : null}
       </div>
 
       {album ? (
@@ -92,11 +100,14 @@ export function MyCollectionTabs({
         </div>
       ) : activeId ? (
         <p className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-12 text-center text-sm text-muted">
-          Não foi possível carregar o catálogo desta coleção. Confira o código do set ou abra pelo{" "}
-          <Link href="/album" className="text-navy hover:underline">
-            Álbum
-          </Link>
-          .
+          Não foi possível carregar o catálogo desta coleção.{" "}
+          {canAddSets ? (
+            <Link href="/cards?buscar=1" className="text-navy hover:underline">
+              Busque a coleção no catálogo
+            </Link>
+          ) : (
+            "Confira o código do set com o administrador."
+          )}
         </p>
       ) : (
         <p className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-12 text-center text-sm text-muted">

@@ -45,7 +45,7 @@ export default async function CardDetailPage({ params }: Props) {
   return (
     <div className="space-y-6">
       <Link href="/cards" className="text-sm text-muted underline-offset-4 hover:underline">
-        Voltar para a minha coleção
+        Voltar para Minha coleção
       </Link>
       <div className="grid items-start gap-8 lg:grid-cols-[320px_minmax(0,1fr)]">
         <div className="mx-auto w-full max-w-xs rounded-2xl border border-line bg-card shadow-[0_16px_40px_-28px_rgba(28,25,23,0.7)] lg:mx-0">
