@@ -12,14 +12,15 @@ export const metadata: Metadata = {
 };
 
 export default async function PublicGalleriesPage() {
-  const [collectors, user] = await Promise.all([listPublicCollectors(), getSessionUser()]);
+  const user = await getSessionUser();
+  const collectors = await listPublicCollectors(user?.id);
 
   return (
     <div className="space-y-8">
       <PageHeader
         kicker="Comunidade"
         title="Galerias públicas"
-        description="Escolha um colecionador. Só aparecem coleções (sets) que o dono marcou como públicas."
+        description="Coleções que outros colecionadores liberaram. Para gerenciar as suas, use Minha galeria."
       >
         {user ? (
           <ButtonLink href="/cards" variant="secondary">

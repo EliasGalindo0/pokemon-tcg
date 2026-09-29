@@ -54,7 +54,7 @@ export async function SiteHeader() {
                 Trocas
               </NavLink>
               <NavLink href="/galeria" tone="dark">
-                Galerias
+                Galerias públicas
               </NavLink>
               {user ? (
                 <NavLink href="/cards" tone="dark">

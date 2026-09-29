@@ -196,6 +196,40 @@ export async function updateCard(userId: string, id: string, input: CardPayload)
   return toCardDto(card);
 }
 
+export async function setCardQuantity(userId: string, id: string, quantity: number) {
+  if (!Number.isInteger(quantity) || quantity < 0 || quantity > 99) {
+    throw new AppError("Quantidade inválida.", 400);
+  }
+  const existing = await prisma.card.findFirst({
+    where: { id, userId },
+    include: { set: true },
+  });
+  if (!existing) throw new AppError("Carta não encontrada.", 404);
+
+  if (quantity === 0) {
+    await prisma.card.delete({ where: { id } });
+    await deleteUpload(existing.imageUrl);
+    await bumpCacheVersion();
+    return null;
+  }
+
+  const card = await prisma.card.update({
+    where: { id },
+    data: { quantity },
+    include: { set: true },
+  });
+  await bumpCacheVersion();
+  await syncTradeExcessFromCard(userId, {
+    name: card.name,
+    cardNumber: card.cardNumber,
+    quantity: card.quantity,
+    language: card.language as LanguageValue,
+    imageUrl: card.imageUrl,
+    set: { name: card.set.name, code: card.set.code },
+  });
+  return toCardDto(card);
+}
+
 export async function deleteCard(userId: string, id: string) {
   const existing = await prisma.card.findFirst({ where: { id, userId } });
   if (!existing) throw new AppError("Carta não encontrada.", 404);

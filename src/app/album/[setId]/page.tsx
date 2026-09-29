@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
+import { CatalogImg } from "@/components/cards/catalog-img";
 import { requireAdminPage } from "@/lib/auth-page";
 import { AppError } from "@/lib/errors";
 import { albumLanguage, getAlbum } from "@/services/album";
@@ -57,8 +58,12 @@ export default async function AlbumSetPage({
           <h1 className="mt-1 font-display text-4xl tracking-tight">{album.name}</h1>
         </div>
         {album.logo ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={album.logo} alt="" className="h-16 w-28 object-contain" />
+          <CatalogImg
+            key={album.setId}
+            src={album.logo}
+            className="h-16 w-28 object-contain"
+            fallback={<span className="text-xs text-muted">{album.setId}</span>}
+          />
         ) : null}
       </div>
       <AlbumBoard album={album} language={language} />

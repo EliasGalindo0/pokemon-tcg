@@ -25,10 +25,11 @@ function toPublicCard(card: CardDTO): CardDTO {
   return { ...card, purchasePrice: null };
 }
 
-export async function listPublicCollectors(): Promise<PublicCollector[]> {
+export async function listPublicCollectors(excludeUserId?: string): Promise<PublicCollector[]> {
   const owners = await prisma.user.findMany({
     where: {
       active: true,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
       sets: { some: { isPublic: true, cards: { some: {} } } },
     },
     select: {

@@ -15,6 +15,8 @@ export type AlbumSlot = {
   owned: boolean;
   ownedIds: string[];
   quantity: number;
+  marketValue?: string | null;
+  purchasePrice?: string | null;
 };
 
 export type AlbumView = {
@@ -25,5 +27,6 @@ export type AlbumView = {
   total: number;
   ownedSlots: number;
   ownedUnits: number;
+  estimatedValue?: string;
   slots: AlbumSlot[];
 };

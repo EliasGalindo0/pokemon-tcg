@@ -6,7 +6,7 @@ import { AppError } from "@/lib/errors";
 import { requireUser } from "@/lib/auth";
 import { parseCardPayload } from "@/lib/validators";
 import { saveUpload } from "@/lib/uploads";
-import { createCard, deleteCard, updateCard } from "@/services/cards";
+import { createCard, deleteCard, setCardQuantity, updateCard } from "@/services/cards";
 
 export type ActionState = {
   message?: string;
@@ -91,4 +91,17 @@ export async function deleteCardAction(id: string) {
   await deleteCard(user.id, id);
   invalidate();
   redirect("/cards");
+}
+
+export async function setCardQuantityAction(id: string, quantity: number) {
+  try {
+    const user = await requireUser();
+    await setCardQuantity(user.id, id, quantity);
+    invalidate();
+    return { ok: true as const };
+  } catch (error) {
+    unstable_rethrow(error);
+    const message = error instanceof AppError ? error.message : "Não foi possível atualizar a quantidade.";
+    return { ok: false as const, message };
+  }
 }

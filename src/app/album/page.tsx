@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CatalogImg } from "@/components/cards/catalog-img";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import { requireAdminPage } from "@/lib/auth-page";
@@ -75,8 +76,15 @@ export default async function AlbumPage({
                 className="flex items-center gap-4 rounded-3xl border border-line bg-card p-4 transition hover:border-navy/30"
               >
                 {set.logo ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={set.logo} alt="" className="h-14 w-24 object-contain" />
+                  <CatalogImg
+                    src={set.logo}
+                    className="h-14 w-24 object-contain"
+                    fallback={
+                      <span className="grid h-14 w-24 place-items-center rounded-2xl bg-paper text-xs text-muted">
+                        {set.id}
+                      </span>
+                    }
+                  />
                 ) : (
                   <span className="grid h-14 w-24 place-items-center rounded-2xl bg-paper text-xs text-muted">
                     {set.id}

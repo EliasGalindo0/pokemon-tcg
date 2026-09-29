@@ -1,7 +1,7 @@
 import { AppError } from "@/lib/errors";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
-import { catalogImageUrl, fetchCatalogCard, fetchTcg } from "@/services/catalog";
+import { catalogImageUrl, catalogLogoUrl, fetchCatalogCard, fetchTcg } from "@/services/catalog";
 import { createCard, createCards, deleteCards } from "@/services/cards";
 import type { CardPayload } from "@/types/card";
 import type { AlbumSetOption, AlbumSlot, AlbumView } from "@/types/album";
@@ -80,7 +80,7 @@ export async function searchAlbumSets(query: string, language: LanguageValue): P
     .map((set) => ({
       id: set.id,
       name: set.name,
-      logo: catalogImageUrl(set.logo, "low"),
+      logo: catalogLogoUrl(set.logo),
       official: set.cardCount?.official ?? 0,
       total: set.cardCount?.total ?? set.cardCount?.official ?? 0,
     }));
@@ -113,12 +113,20 @@ export async function getAlbum(
   if (localSet && userId) {
     const owned = await prisma.card.findMany({
       where: { userId, setId: localSet.id },
-      select: { id: true, cardNumber: true, quantity: true },
+      select: { id: true, cardNumber: true, quantity: true, marketValue: true, purchasePrice: true },
     });
-    const byNumber = new Map<string, { ids: string[]; quantity: number }>();
+    const byNumber = new Map<
+      string,
+      { ids: string[]; quantity: number; marketValue: string; purchasePrice: string | null }
+    >();
     for (const card of owned) {
       const key = localNumber(card.cardNumber);
-      const current = byNumber.get(key) ?? { ids: [], quantity: 0 };
+      const current = byNumber.get(key) ?? {
+        ids: [],
+        quantity: 0,
+        marketValue: card.marketValue.toString(),
+        purchasePrice: card.purchasePrice?.toString() ?? null,
+      };
       current.ids.push(card.id);
       current.quantity += card.quantity;
       byNumber.set(key, current);
@@ -129,17 +137,23 @@ export async function getAlbum(
       slot.owned = true;
       slot.ownedIds = match.ids;
       slot.quantity = match.quantity;
+      slot.marketValue = match.marketValue;
+      slot.purchasePrice = match.purchasePrice;
     }
   }
 
   return {
     setId: set.id ?? id,
     name: set.name ?? id,
-    logo: catalogImageUrl(set.logo, "low"),
+    logo: catalogLogoUrl(set.logo),
     official,
     total: slots.length,
     ownedSlots: slots.filter((slot) => slot.owned).length,
     ownedUnits: slots.reduce((sum, slot) => sum + slot.quantity, 0),
+    estimatedValue: slots
+      .filter((slot) => slot.owned && slot.marketValue)
+      .reduce((sum, slot) => sum + Number(slot.marketValue) * slot.quantity, 0)
+      .toFixed(2),
     slots,
   };
 }
