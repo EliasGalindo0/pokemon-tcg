@@ -65,7 +65,7 @@ export function TradeTabs({
             </div>
             <div className="flex items-center gap-3">
               {board.logoUrl ? (
-                <CatalogImg src={board.logoUrl} className="h-12 w-24 object-contain" />
+                <CatalogImg key={board.id} src={board.logoUrl} className="h-12 w-24 object-contain" />
               ) : null}
               {readOnly ? null : (
                 <DeleteCardButton

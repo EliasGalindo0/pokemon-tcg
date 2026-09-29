@@ -1,7 +1,7 @@
 import { AppError } from "@/lib/errors";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
-import { catalogImageUrl, catalogLanguage, fetchTcg } from "@/services/catalog";
+import { catalogImageUrl, catalogLanguage, catalogLogoUrl, fetchTcg } from "@/services/catalog";
 import type { TradeBoard, TradeSetCandidate, TradeSetSummary, TradeSlot } from "@/types/trade";
 
 const SET_ID = /^[a-z0-9][a-z0-9.-]{0,40}$/i;
@@ -136,7 +136,7 @@ export async function resolveTradeSetsFromCardNumber(
     candidates.push({
       tcgSetId: set.id,
       name: set.name,
-      logoUrl: catalogImageUrl(set.logo, "low"),
+      logoUrl: catalogLogoUrl(set.logo),
       official,
       total: set.cards.length,
       sampleNumber: printedNumber(localId, official),
@@ -159,7 +159,7 @@ export async function createTradeSet(userId: string, tcgSetId: string, language:
       userId,
       tcgSetId: set.id!,
       name: set.name!,
-      logoUrl: catalogImageUrl(set.logo, "low"),
+      logoUrl: catalogLogoUrl(set.logo),
       language,
       official,
     },
@@ -188,7 +188,7 @@ export async function getTradeBoard(userId: string, id: string): Promise<TradeBo
     id: tradeSet.id,
     tcgSetId: tradeSet.tcgSetId,
     name: tradeSet.name,
-    logoUrl: tradeSet.logoUrl ?? catalogImageUrl(catalog.logo, "low"),
+    logoUrl: catalogLogoUrl(catalog.logo) ?? tradeSet.logoUrl,
     language: tradeSet.language,
     official,
     total: slots.length,

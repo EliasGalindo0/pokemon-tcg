@@ -56,6 +56,13 @@ export function catalogImageUrl(base: string | undefined, quality: "low" | "high
   return `${clean}/${quality}.webp`;
 }
 
+/** Logos often 404 in pt/ja; English assets are the reliable source. */
+export function catalogLogoUrl(base: string | undefined) {
+  const url = catalogImageUrl(base, "low");
+  if (!url) return null;
+  return url.replace(/^(https?:\/\/assets\.tcgdex\.net)\/[a-z]{2}\//i, "$1/en/");
+}
+
 function imageUrl(base: string | undefined, quality: "low" | "high") {
   return catalogImageUrl(base, quality);
 }
