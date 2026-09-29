@@ -8,8 +8,23 @@ import type { TradeBoard, TradeSlot } from "@/types/trade";
 
 type Filter = "all" | "missing" | "owned";
 
-export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard; readOnly?: boolean }) {
-  const [filter, setFilter] = useState<Filter>(readOnly ? "owned" : "all");
+export function TradeBoardView({
+  board,
+  readOnly = false,
+  stockOnly = false,
+  canOffer,
+  viewerDisplayName,
+  compact = false,
+}: {
+  board: TradeBoard;
+  readOnly?: boolean;
+  stockOnly?: boolean;
+  canOffer?: boolean;
+  viewerDisplayName?: string | null;
+  compact?: boolean;
+}) {
+  const allowOffer = canOffer ?? readOnly;
+  const [filter, setFilter] = useState<Filter>(readOnly || stockOnly ? "owned" : "all");
   const [message, setMessage] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
@@ -39,18 +54,22 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
 
   return (
     <div className="space-y-6">
-      <div>
-        <p className="text-sm text-muted">
-          {board.ownedSlots} de {board.total} cartas para troca
-          {board.unitCount > board.ownedSlots ? ` · ${board.unitCount} unidades` : ""}
-          {board.official > 0 ? ` · ${board.official} oficiais` : ""}
-        </p>
-        <p className="mt-1 max-w-xl text-sm text-muted">
-          {readOnly
-            ? "Escolha uma carta disponível e proponha uma troca oferecendo outra carta do catálogo."
-            : "As cartas que você ainda não tem para troca ficam apagadas. Clique para marcar e use +/− para a quantidade disponível."}
-        </p>
-      </div>
+      {compact ? null : (
+        <div>
+          <p className="text-sm text-muted">
+            {board.ownedSlots} de {board.total} cartas para troca
+            {board.unitCount > board.ownedSlots ? ` · ${board.unitCount} unidades` : ""}
+            {board.official > 0 ? ` · ${board.official} oficiais` : ""}
+          </p>
+          <p className="mt-1 max-w-xl text-sm text-muted">
+            {readOnly
+              ? allowOffer
+                ? `Escolha uma carta de ${board.owner.displayName} e proponha uma troca. O pedido vai só para este colecionador.`
+                : "Estas são as suas cartas disponíveis para troca."
+              : "As cartas que você ainda não tem para troca ficam apagadas. Clique para marcar e use +/− para a quantidade disponível."}
+          </p>
+        </div>
+      )}
 
       {message ? (
         <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-ember" role="alert">
@@ -58,28 +77,30 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
         </p>
       ) : null}
 
-      <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar cartas para troca">
-        {(
-          [
-            ["all", `Todas (${board.total})`],
-            ["missing", `Sem estoque (${missing})`],
-            ["owned", `Para troca (${board.ownedSlots})`],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            role="tab"
-            aria-selected={filter === value}
-            onClick={() => setFilter(value)}
-            className={`rounded-full px-3 py-1.5 text-sm transition ${
-              filter === value ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
-            }`}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
+      {stockOnly ? null : (
+        <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filtrar cartas para troca">
+          {(
+            [
+              ["all", `Todas (${board.total})`],
+              ["missing", `Sem estoque (${missing})`],
+              ["owned", `Para troca (${board.ownedSlots})`],
+            ] as const
+          ).map(([value, label]) => (
+            <button
+              key={value}
+              type="button"
+              role="tab"
+              aria-selected={filter === value}
+              onClick={() => setFilter(value)}
+              className={`rounded-full px-3 py-1.5 text-sm transition ${
+                filter === value ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      )}
 
       {visible.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-12 text-center text-sm text-muted">
@@ -101,18 +122,20 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
                     type="button"
                     onClick={() => {
                       if (readOnly) {
-                        if (owned) setOfferSlot(slot);
+                        if (owned && allowOffer) setOfferSlot(slot);
                         return;
                       }
                       if (owned) return;
                       setQuantity(slot.tcgId, 1);
                     }}
-                    disabled={busy || (!readOnly && owned) || (readOnly && !owned)}
+                    disabled={busy || (!readOnly && owned) || (readOnly && (!owned || !allowOffer))}
                     aria-pressed={owned}
                     aria-label={
                       readOnly
                         ? owned
-                          ? `Propor troca por ${slot.name} ${slot.number}`
+                          ? allowOffer
+                            ? `Propor troca por ${slot.name} ${slot.number} com ${board.owner.displayName}`
+                            : `${slot.name} ${slot.number}, ${slot.quantity} para troca`
                           : `${slot.name} ${slot.number}, indisponível`
                         : owned
                           ? `${slot.name} ${slot.number}, ${slot.quantity} para troca`
@@ -165,9 +188,13 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
                     </div>
                   ) : null}
 
-                  {owned && readOnly ? (
+                  {owned && readOnly && allowOffer ? (
                     <span className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
                       Trocar{slot.quantity > 1 ? ` · ${slot.quantity}` : ""}
+                    </span>
+                  ) : owned && readOnly && slot.quantity > 1 ? (
+                    <span className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
+                      {slot.quantity}
                     </span>
                   ) : null}
 
@@ -192,6 +219,9 @@ export function TradeBoardView({ board, readOnly = false }: { board: TradeBoard;
       {offerSlot ? (
         <TradeOfferDialog
           tradeSetId={board.id}
+          ownerUsername={board.owner.username}
+          ownerDisplayName={board.owner.displayName}
+          viewerDisplayName={viewerDisplayName}
           language={board.language}
           slot={offerSlot}
           onClose={() => setOfferSlot(null)}

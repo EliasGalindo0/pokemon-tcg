@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { requireUser } from "@/lib/auth";
+import { getSessionUser, requireUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import {
   acceptTradeOffer,
@@ -14,6 +14,7 @@ import { tradeLanguage } from "@/services/trades";
 export type OfferActionResult = { ok: true; message?: string } | { ok: false; message: string };
 
 export async function proposeTradeOfferAction(input: {
+  ownerUsername: string;
   wantedTradeSetId: string;
   wantedTcgId: string;
   offeredTcgId: string;
@@ -22,15 +23,23 @@ export async function proposeTradeOfferAction(input: {
   visitorNote?: string;
 }): Promise<OfferActionResult> {
   try {
-    await createTradeOffer({
-      wantedTradeSetId: input.wantedTradeSetId,
-      wantedTcgId: input.wantedTcgId,
-      offeredTcgId: input.offeredTcgId,
-      offeredLanguage: tradeLanguage(input.offeredLanguage),
-      visitorName: input.visitorName,
-      visitorNote: input.visitorNote,
-    });
+    const fromUser = await getSessionUser();
+    await createTradeOffer(
+      {
+        ownerUsername: input.ownerUsername,
+        wantedTradeSetId: input.wantedTradeSetId,
+        wantedTcgId: input.wantedTcgId,
+        offeredTcgId: input.offeredTcgId,
+        offeredLanguage: tradeLanguage(input.offeredLanguage),
+        visitorName: input.visitorName,
+        visitorNote: input.visitorNote,
+      },
+      fromUser,
+    );
     revalidatePath("/trocas");
+    revalidatePath(`/trocas/${input.ownerUsername}`);
+    revalidatePath("/galeria");
+    revalidatePath(`/galeria/${input.ownerUsername}`);
     revalidatePath("/ofertas");
     return { ok: true, message: "Oferta enviada. O dono da coleção vai analisar." };
   } catch (error) {

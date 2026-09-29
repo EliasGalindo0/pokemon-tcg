@@ -10,7 +10,7 @@ import { ButtonLink } from "@/components/ui/button";
 import { requireUserPage } from "@/lib/auth-page";
 import { isAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
-import { PAGE_MY_COLLECTION } from "@/lib/site-copy";
+import { NAV_COLLECTIONS, PAGE_MY_COLLECTION } from "@/lib/site-copy";
 import { albumLanguage, getAlbum } from "@/services/album";
 import { listSets } from "@/services/sets";
 import type { AlbumView } from "@/types/album";
@@ -116,7 +116,7 @@ export default async function MyCollectionPage({
           <>
             {publicCount} {publicCount === 1 ? "coleção pública" : "coleções públicas"} em{" "}
             <Link href="/galeria" className="text-navy hover:underline">
-              Coleções
+              {NAV_COLLECTIONS}
             </Link>
             . Visibilidade em{" "}
             <Link href="/conta" className="text-navy hover:underline">
@@ -132,7 +132,7 @@ export default async function MyCollectionPage({
             </Link>{" "}
             você libera sets para{" "}
             <Link href="/galeria" className="text-navy hover:underline">
-              Coleções
+              {NAV_COLLECTIONS}
             </Link>
             .
           </>
