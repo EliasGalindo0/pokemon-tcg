@@ -6,18 +6,64 @@ import { fetchCatalogCard, findEnergyArtwork } from "@/services/catalog";
 import type { CatalogHit } from "@/types/catalog";
 import type { DeckDetail, DeckEntryDTO, DeckPayload, DeckSummary } from "@/types/deck";
 
+function entryImage(entry: {
+  imageUrl?: string | null;
+  card?: { imageUrl: string | null; name?: string } | null;
+}) {
+  return entry.card?.imageUrl || entry.imageUrl || null;
+}
+
+function pickFallbackCover(
+  entries: {
+    quantity: number;
+    imageUrl?: string | null;
+    name?: string | null;
+    card?: { imageUrl: string | null; name: string } | null;
+  }[],
+) {
+  return [...entries]
+    .sort((a, b) => {
+      const aEnergy = /^energia\b/i.test(a.card?.name || a.name || "") ? 0 : 1;
+      const bEnergy = /^energia\b/i.test(b.card?.name || b.name || "") ? 0 : 1;
+      if (aEnergy !== bEnergy) return bEnergy - aEnergy;
+      return b.quantity - a.quantity;
+    })
+    .map((entry) => entryImage(entry))
+    .find((url): url is string => Boolean(url));
+}
+
 function summary(deck: {
   id: string;
   name: string;
   format: DeckFormatValue;
+  coverEntryId?: string | null;
   updatedAt: Date;
-  entries: { quantity: number }[];
+  entries: {
+    id?: string;
+    quantity: number;
+    imageUrl?: string | null;
+    name?: string | null;
+    card?: { imageUrl: string | null; name: string } | null;
+  }[];
+  coverEntry?: {
+    imageUrl?: string | null;
+    card?: { imageUrl: string | null } | null;
+  } | null;
 }): DeckSummary {
+  const chosen =
+    (deck.coverEntry ? entryImage(deck.coverEntry) : null) ||
+    (deck.coverEntryId
+      ? entryImage(deck.entries.find((entry) => entry.id === deck.coverEntryId) ?? {})
+      : null) ||
+    pickFallbackCover(deck.entries);
+
   return {
     id: deck.id,
     name: deck.name,
     format: deck.format,
     cardCount: deck.entries.reduce((sum, entry) => sum + entry.quantity, 0),
+    coverEntryId: deck.coverEntryId ?? null,
+    coverImageUrl: chosen ?? null,
     updatedAt: deck.updatedAt.toISOString(),
   };
 }
@@ -28,7 +74,18 @@ export function parseDeckFormat(value: string | undefined): DeckFormatValue {
 
 export async function listDecks(): Promise<DeckSummary[]> {
   const decks = await prisma.deck.findMany({
-    include: { entries: { select: { quantity: true } } },
+    include: {
+      coverEntry: { include: { card: { select: { imageUrl: true, name: true } } } },
+      entries: {
+        select: {
+          id: true,
+          quantity: true,
+          imageUrl: true,
+          name: true,
+          card: { select: { imageUrl: true, name: true } },
+        },
+      },
+    },
     orderBy: { updatedAt: "desc" },
   });
   return decks.map(summary);
@@ -44,6 +101,7 @@ export async function getDeck(id: string): Promise<DeckDetail | null> {
   const deck = await prisma.deck.findUnique({
     where: { id },
     include: {
+      coverEntry: { include: { card: { select: { imageUrl: true, name: true } } } },
       entries: {
         include: { card: { include: { set: true } } },
       },
@@ -121,12 +179,31 @@ export async function deleteDeck(id: string) {
   await bumpCacheVersion();
 }
 
+export async function setDeckCover(deckId: string, entryId: string) {
+  const entry = await prisma.deckEntry.findFirst({
+    where: { id: entryId, deckId },
+    include: { card: { select: { imageUrl: true } } },
+  });
+  if (!entry) throw new AppError("Carta não encontrada neste deck.", 404);
+  if (!entryImage(entry)) throw new AppError("Essa carta não tem imagem para usar como capa.", 400);
+
+  await prisma.deck.update({
+    where: { id: deckId },
+    data: { coverEntryId: entryId },
+  });
+  await bumpCacheVersion();
+}
+
 export async function setDeckCardQuantity(deckId: string, cardId: string, quantity: number) {
   const deck = await prisma.deck.findUnique({ where: { id: deckId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
   if (quantity <= 0) {
+    const entry = await prisma.deckEntry.findUnique({ where: { deckId_cardId: { deckId, cardId } } });
     await prisma.deckEntry.deleteMany({ where: { deckId, cardId } });
+    if (entry && deck.coverEntryId === entry.id) {
+      await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
+    }
     await bumpCacheVersion();
     return;
   }
@@ -194,7 +271,11 @@ export async function setDeckCatalogQuantity(deckId: string, tcgId: string, quan
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
   if (quantity <= 0) {
+    const existing = await prisma.deckEntry.findUnique({ where: { deckId_tcgId: { deckId, tcgId } } });
     await prisma.deckEntry.deleteMany({ where: { deckId, tcgId } });
+    if (existing && deck.coverEntryId === existing.id) {
+      await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
+    }
     await bumpCacheVersion();
     return;
   }

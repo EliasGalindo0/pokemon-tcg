@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import { fail, ok, toResponse } from "@/lib/http";
 import { parseCardPayload } from "@/lib/validators";
@@ -14,6 +15,12 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function PATCH(request: Request, context: Context) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   const { id } = await context.params;
   let body: unknown;
   try {
@@ -37,6 +44,12 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(_request: Request, context: Context) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   const { id } = await context.params;
   try {
     await deleteCard(id);

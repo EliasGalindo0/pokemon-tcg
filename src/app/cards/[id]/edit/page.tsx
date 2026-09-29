@@ -1,8 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { updateCardAction } from "@/actions/cards";
 import { CardForm } from "@/components/cards/card-form";
+import { isAdmin } from "@/lib/auth";
 import { getCard } from "@/services/cards";
 import { listSets } from "@/services/sets";
 
@@ -14,6 +15,7 @@ export const metadata: Metadata = {
 
 export default async function EditCardPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
+  if (!(await isAdmin())) redirect(`/login?next=/cards/${id}/edit`);
   const [card, sets] = await Promise.all([getCard(id), listSets()]);
   if (!card) notFound();
 

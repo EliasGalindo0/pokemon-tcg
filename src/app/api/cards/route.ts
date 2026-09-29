@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth";
 import { parseCardQuery } from "@/lib/card-query";
 import { fail, ok, toResponse } from "@/lib/http";
 import { parseCardPayload } from "@/lib/validators";
@@ -22,6 +23,12 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   let body: unknown;
   try {
     body = await request.json();

@@ -1,4 +1,5 @@
 import { revalidatePath } from "next/cache";
+import { requireAdmin } from "@/lib/auth";
 import { fail, ok, toResponse } from "@/lib/http";
 import { parseDeckPayload } from "@/lib/validators";
 import { deleteDeck, getDeck, updateDeck } from "@/services/decks";
@@ -13,6 +14,12 @@ export async function GET(_request: Request, context: Context) {
 }
 
 export async function PATCH(request: Request, context: Context) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   const { id } = await context.params;
   let body: unknown;
   try {
@@ -34,6 +41,12 @@ export async function PATCH(request: Request, context: Context) {
 }
 
 export async function DELETE(_request: Request, context: Context) {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   const { id } = await context.params;
   try {
     await deleteDeck(id);

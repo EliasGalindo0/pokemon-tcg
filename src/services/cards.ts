@@ -6,8 +6,10 @@ import { bumpCacheVersion, cacheGet, cacheSet, getCacheVersion } from "@/lib/red
 import { fillMissingImages } from "@/services/catalog";
 import { withSetLogos } from "@/services/set-logos";
 import { resolveSet } from "@/services/sets";
+import { syncTradeExcessFromCard } from "@/services/trades";
 import { deleteUpload } from "@/lib/uploads";
 import type { CardDTO, CardListResult, CardPayload, CardQuery } from "@/types/card";
+import type { LanguageValue } from "@/lib/labels";
 
 export const PAGE_SIZE = 50;
 
@@ -54,7 +56,7 @@ function money(value: number) {
 export async function listCards(query: CardQuery): Promise<CardListResult> {
   await fillMissingImages();
   const version = await getCacheVersion();
-  const key = `v${version}:cards:v3:${JSON.stringify(query)}`;
+  const key = `v${version}:cards:v4:${JSON.stringify(query)}`;
   const cached = await cacheGet<CardListResult>(key);
   if (cached) return cached;
 
@@ -62,11 +64,19 @@ export async function listCards(query: CardQuery): Promise<CardListResult> {
   const total = await prisma.card.count({ where });
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(query.page, pageCount);
+  const sort = query.sort ?? "recent";
+
+  const orderBy: Prisma.CardOrderByWithRelationInput[] =
+    sort === "name"
+      ? [{ name: "asc" }, { cardNumber: "asc" }]
+      : sort === "number"
+        ? [{ cardNumber: "asc" }, { name: "asc" }]
+        : [{ createdAt: "desc" }, { name: "asc" }];
 
   const cards = await prisma.card.findMany({
     where,
     include: { set: true },
-    orderBy: [{ createdAt: "desc" }, { name: "asc" }],
+    orderBy,
     skip: (page - 1) * PAGE_SIZE,
     take: PAGE_SIZE,
   });
@@ -114,6 +124,14 @@ export async function createCard(input: CardPayload) {
     include: { set: true },
   });
   await bumpCacheVersion();
+  await syncTradeExcessFromCard({
+    name: card.name,
+    cardNumber: card.cardNumber,
+    quantity: card.quantity,
+    language: card.language as LanguageValue,
+    imageUrl: card.imageUrl,
+    set: { name: card.set.name, code: card.set.code },
+  });
   return toCardDto(card);
 }
 
@@ -143,6 +161,14 @@ export async function updateCard(id: string, input: CardPayload) {
     await deleteUpload(existing.imageUrl);
   }
   await bumpCacheVersion();
+  await syncTradeExcessFromCard({
+    name: card.name,
+    cardNumber: card.cardNumber,
+    quantity: card.quantity,
+    language: card.language as LanguageValue,
+    imageUrl: card.imageUrl,
+    set: { name: card.set.name, code: card.set.code },
+  });
   return toCardDto(card);
 }
 

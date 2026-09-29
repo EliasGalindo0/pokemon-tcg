@@ -8,7 +8,15 @@ import type { AlbumView } from "@/types/album";
 
 type Filter = "all" | "missing" | "owned";
 
-export function AlbumBoard({ album, language }: { album: AlbumView; language: string }) {
+export function AlbumBoard({
+  album,
+  language,
+  readOnly = false,
+}: {
+  album: AlbumView;
+  language: string;
+  readOnly?: boolean;
+}) {
   const [filter, setFilter] = useState<Filter>("all");
   const [message, setMessage] = useState<string | null>(null);
   const [pendingId, setPendingId] = useState<string | null>(null);
@@ -24,6 +32,7 @@ export function AlbumBoard({ album, language }: { album: AlbumView; language: st
   const missing = album.total - album.ownedSlots;
 
   function toggle(slotId: string, ownedIds: string[], owned: boolean) {
+    if (readOnly) return;
     if (inflight.current.has(slotId)) return;
     if (owned && !window.confirm("Tirar esta carta do álbum?")) return;
     inflight.current.add(slotId);
@@ -38,6 +47,7 @@ export function AlbumBoard({ album, language }: { album: AlbumView; language: st
   }
 
   function ownAll() {
+    if (readOnly) return;
     setMessage(null);
     startFill(async () => {
       const result = await ownEntireAlbum(album.setId, language);
@@ -55,13 +65,16 @@ export function AlbumBoard({ album, language }: { album: AlbumView; language: st
             {album.official > 0 ? ` · ${album.official} oficiais` : ""}
           </p>
           <p className="mt-1 max-w-xl text-sm text-muted">
-            As cartas que você não tem ficam apagadas. Clique para marcar ou tirar. Se a coleção estiver quase
-            completa, marque todas e remova só as que faltam.
+            {readOnly
+              ? "Visualização somente leitura. Peça ao dono da coleção para marcar cartas novas."
+              : "As cartas que você não tem ficam apagadas. Clique para marcar ou tirar. Se a coleção estiver quase completa, marque todas e remova só as que faltam."}
           </p>
         </div>
-        <Button type="button" onClick={ownAll} disabled={filling || missing === 0}>
-          {filling ? "Marcando…" : "Tenho todas"}
-        </Button>
+        {readOnly ? null : (
+          <Button type="button" onClick={ownAll} disabled={filling || missing === 0}>
+            {filling ? "Marcando…" : "Tenho todas"}
+          </Button>
+        )}
       </div>
 
       {message ? (
@@ -106,7 +119,7 @@ export function AlbumBoard({ album, language }: { album: AlbumView; language: st
                 <button
                   type="button"
                   onClick={() => toggle(slot.tcgId, slot.ownedIds, slot.owned)}
-                  disabled={busy || filling}
+                  disabled={busy || filling || readOnly}
                   aria-pressed={slot.owned}
                   aria-label={
                     slot.owned
@@ -115,7 +128,7 @@ export function AlbumBoard({ album, language }: { album: AlbumView; language: st
                   }
                   className={`group relative block w-full overflow-hidden rounded-xl border bg-card text-left transition ${
                     slot.owned ? "border-navy/30 shadow-sm" : "border-line"
-                  }`}
+                  } ${readOnly ? "cursor-default" : ""}`}
                 >
                   <span className={`block aspect-[63/88] ${slot.owned ? "" : "opacity-40 grayscale"}`}>
                     {slot.imageUrl ? (

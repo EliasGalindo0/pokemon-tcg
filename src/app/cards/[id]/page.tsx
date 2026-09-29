@@ -6,6 +6,7 @@ import { CardBack } from "@/components/cards/card-back";
 import { SetTag } from "@/components/cards/set-tag";
 import { DeleteCardButton } from "@/components/cards/delete-card-button";
 import { ButtonLink } from "@/components/ui/button";
+import { isAdmin } from "@/lib/auth";
 import { formatDate, formatMoney, formatMoneyOrDash, lotValue } from "@/lib/format";
 import { CONDITION_LABEL, LANGUAGE_LABEL } from "@/lib/labels";
 import { getCard } from "@/services/cards";
@@ -31,7 +32,7 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export default async function CardDetailPage({ params }: Props) {
   const { id } = await params;
-  const card = await getCard(id);
+  const [card, admin] = await Promise.all([getCard(id), isAdmin()]);
   if (!card) notFound();
 
   return (
@@ -67,12 +68,14 @@ export default async function CardDetailPage({ params }: Props) {
             <Fact label="Valor do lote" value={lotValue(card.marketValue, card.quantity)} />
             <Fact label="Cadastrada em" value={formatDate(card.createdAt)} />
           </dl>
-          <div className="mt-6 flex flex-wrap gap-3">
-            <ButtonLink href={`/cards/${card.id}/edit`} variant="secondary">
-              Editar
-            </ButtonLink>
-            <DeleteCardButton action={deleteCardAction.bind(null, card.id)} />
-          </div>
+          {admin ? (
+            <div className="mt-6 flex flex-wrap gap-3">
+              <ButtonLink href={`/cards/${card.id}/edit`} variant="secondary">
+                Editar
+              </ButtonLink>
+              <DeleteCardButton action={deleteCardAction.bind(null, card.id)} />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>

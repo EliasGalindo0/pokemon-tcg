@@ -11,11 +11,11 @@ export function CardFilters({
   values,
 }: {
   sets: SetDTO[];
-  values: { q?: string; setId?: string; rarity?: string; condition?: string };
+  values: { q?: string; setId?: string; rarity?: string; condition?: string; sort?: string };
 }) {
   return (
     <form action="/cards" className="grid gap-3 rounded-2xl border border-line bg-card p-4 md:grid-cols-12">
-      <label className="md:col-span-5">
+      <label className="md:col-span-4">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Nome</span>
         <input
           type="search"
@@ -47,7 +47,7 @@ export function CardFilters({
           ))}
         </select>
       </label>
-      <label className="md:col-span-2">
+      <label className="md:col-span-1">
         <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Condição</span>
         <select name="condition" defaultValue={values.condition ?? ""} className={controlClass}>
           <option value="">Todas</option>
@@ -56,6 +56,14 @@ export function CardFilters({
               {option.label}
             </option>
           ))}
+        </select>
+      </label>
+      <label className="md:col-span-2">
+        <span className="mb-1.5 block text-xs font-medium uppercase tracking-wide text-muted">Ordenar</span>
+        <select name="sort" defaultValue={values.sort ?? "recent"} className={controlClass}>
+          <option value="recent">Mais recentes</option>
+          <option value="name">Nome A–Z</option>
+          <option value="number">Número 0–9</option>
         </select>
       </label>
       <div className="flex flex-wrap items-center gap-3 md:col-span-12">

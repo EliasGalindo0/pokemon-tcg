@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
+import { isAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import { albumLanguage, getAlbum } from "@/services/album";
 
@@ -35,6 +36,7 @@ export default async function AlbumSetPage({
   const { setId } = await params;
   const { language: languageRaw } = await searchParams;
   const language = albumLanguage(languageRaw);
+  const admin = await isAdmin();
 
   let album;
   try {
@@ -53,9 +55,12 @@ export default async function AlbumSetPage({
           </Link>
           <h1 className="mt-1 font-display text-4xl tracking-tight">{album.name}</h1>
         </div>
-        {album.logo ? <img src={album.logo} alt="" className="h-16 w-28 object-contain" /> : null}
+        {album.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={album.logo} alt="" className="h-16 w-28 object-contain" />
+        ) : null}
       </div>
-      <AlbumBoard album={album} language={language} />
+      <AlbumBoard album={album} language={language} readOnly={!admin} />
     </div>
   );
 }

@@ -36,6 +36,7 @@ export type CardQuery = {
   setId?: string;
   rarity?: RarityValue;
   condition?: ConditionValue;
+  sort?: "name" | "number" | "recent";
   page: number;
 };
 

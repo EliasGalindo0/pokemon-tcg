@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { AppError } from "@/lib/errors";
+import { requireAdmin } from "@/lib/auth";
 import { parseCardPayload } from "@/lib/validators";
 import { saveUpload } from "@/lib/uploads";
 import { createCard, deleteCard, updateCard } from "@/services/cards";
@@ -30,6 +31,12 @@ function payloadFromForm(formData: FormData) {
 }
 
 export async function createCardAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
+  }
   const parsed = payloadFromForm(formData);
   if (!parsed.success) {
     return { fieldErrors: parsed.fieldErrors, message: "Revise os campos destacados." };
@@ -53,6 +60,12 @@ export async function updateCardAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  try {
+    await requireAdmin();
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
+  }
   const parsed = payloadFromForm(formData);
   if (!parsed.success) {
     return { fieldErrors: parsed.fieldErrors, message: "Revise os campos destacados." };
@@ -72,6 +85,7 @@ export async function updateCardAction(
 }
 
 export async function deleteCardAction(id: string) {
+  await requireAdmin();
   await deleteCard(id);
   invalidate();
   redirect("/cards");

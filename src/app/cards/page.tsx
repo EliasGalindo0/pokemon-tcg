@@ -4,6 +4,7 @@ import { CardTile } from "@/components/cards/card-tile";
 import { Pagination } from "@/components/cards/pagination";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
+import { isAdmin } from "@/lib/auth";
 import { parseCardQuery } from "@/lib/card-query";
 import { listCards } from "@/services/cards";
 import { listSets } from "@/services/sets";
@@ -17,14 +18,31 @@ export const metadata: Metadata = {
 export default async function GalleryPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; setId?: string; rarity?: string; condition?: string; page?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    setId?: string;
+    rarity?: string;
+    condition?: string;
+    sort?: string;
+    page?: string;
+  }>;
 }) {
+  const admin = await isAdmin();
   const raw = await searchParams;
   const query = parseCardQuery(raw);
   const [sets, result] = await Promise.all([listSets(), listCards(query)]);
-  const hasFilters = Boolean(query.q || query.setId || query.rarity || query.condition);
+  const hasFilters = Boolean(
+    query.q || query.setId || query.rarity || query.condition || (query.sort && query.sort !== "recent"),
+  );
   const start = result.total === 0 ? 0 : (result.page - 1) * result.pageSize + 1;
   const end = Math.min(result.page * result.pageSize, result.total);
+  const filterParams = {
+    q: query.q,
+    setId: query.setId,
+    rarity: query.rarity,
+    condition: query.condition,
+    sort: query.sort && query.sort !== "recent" ? query.sort : undefined,
+  };
 
   return (
     <div className="space-y-6">
@@ -33,14 +51,22 @@ export default async function GalleryPage({
         title="Galeria"
         description={result.total === 0 ? "Nenhum item" : `Mostrando ${start}–${end} de ${result.total} itens`}
       >
-        <ButtonLink href="/cards/new" variant="secondary">
-          Nova carta
-        </ButtonLink>
+        {admin ? (
+          <ButtonLink href="/cards/new" variant="secondary">
+            Nova carta
+          </ButtonLink>
+        ) : null}
       </PageHeader>
 
       <CardFilters
         sets={sets}
-        values={{ q: query.q, setId: query.setId, rarity: query.rarity, condition: query.condition }}
+        values={{
+          q: query.q,
+          setId: query.setId,
+          rarity: query.rarity,
+          condition: query.condition,
+          sort: query.sort,
+        }}
       />
 
       {result.items.length === 0 ? (
@@ -65,11 +91,7 @@ export default async function GalleryPage({
         </div>
       )}
 
-      <Pagination
-        page={result.page}
-        pageCount={result.pageCount}
-        params={{ q: query.q, setId: query.setId, rarity: query.rarity, condition: query.condition }}
-      />
+      <Pagination page={result.page} pageCount={result.pageCount} params={filterParams} />
     </div>
   );
 }

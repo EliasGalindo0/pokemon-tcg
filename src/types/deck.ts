@@ -5,6 +5,8 @@ export type DeckSummary = {
   name: string;
   format: DeckFormatValue;
   cardCount: number;
+  coverEntryId: string | null;
+  coverImageUrl: string | null;
   updatedAt: string;
 };
 

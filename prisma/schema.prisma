@@ -59,6 +59,13 @@ enum DeckFormat {
   OTHER
 }
 
+enum TradeOfferStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+  CANCELLED
+}
+
 model Set {
   id        String   @id @default(cuid())
   name      String   @unique
@@ -93,12 +100,14 @@ model Card {
 }
 
 model Deck {
-  id        String     @id @default(cuid())
-  name      String
-  format    DeckFormat @default(STANDARD)
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
-  entries   DeckEntry[]
+  id           String      @id @default(cuid())
+  name         String
+  format       DeckFormat  @default(STANDARD)
+  coverEntryId String?     @unique
+  coverEntry   DeckEntry?  @relation("DeckCover", fields: [coverEntryId], references: [id], onDelete: SetNull)
+  createdAt    DateTime    @default(now())
+  updatedAt    DateTime    @updatedAt
+  entries      DeckEntry[]
 
   @@index([name])
 }
@@ -117,8 +126,69 @@ model DeckEntry {
   quantity   Int      @default(1)
   createdAt  DateTime @default(now())
   updatedAt  DateTime @updatedAt
+  coverOf    Deck?    @relation("DeckCover")
 
   @@unique([deckId, cardId])
   @@unique([deckId, tcgId])
   @@index([cardId])
+}
+
+model TradeSet {
+  id        String       @id @default(cuid())
+  tcgSetId  String
+  name      String
+  logoUrl   String?
+  language  Language     @default(PT_BR)
+  official  Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+  entries   TradeEntry[]
+  offers    TradeOffer[]
+
+  @@unique([tcgSetId, language])
+  @@index([name])
+}
+
+model TradeEntry {
+  id         String   @id @default(cuid())
+  tradeSetId String
+  tradeSet   TradeSet @relation(fields: [tradeSetId], references: [id], onDelete: Cascade)
+  tcgId      String
+  name       String
+  localId    String
+  cardNumber String?
+  imageUrl   String?
+  quantity   Int      @default(1)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([tradeSetId, tcgId])
+  @@index([tradeSetId])
+}
+
+model TradeOffer {
+  id               String           @id @default(cuid())
+  status           TradeOfferStatus @default(PENDING)
+  wantedTradeSetId String
+  wantedTradeSet   TradeSet         @relation(fields: [wantedTradeSetId], references: [id], onDelete: Cascade)
+  wantedTcgId      String
+  wantedName       String
+  wantedNumber     String?
+  wantedImageUrl   String?
+  offeredTcgId     String
+  offeredName      String
+  offeredSetName   String
+  offeredSetCode   String?
+  offeredNumber    String?
+  offeredImageUrl  String?
+  offeredLanguage  Language         @default(PT_BR)
+  offeredRarity    Rarity           @default(COMMON)
+  visitorName      String?
+  visitorNote      String?
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+  resolvedAt       DateTime?
+
+  @@index([status, createdAt])
+  @@index([wantedTradeSetId])
 }
