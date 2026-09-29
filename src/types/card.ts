@@ -41,12 +41,36 @@ export type CardQuery = {
   page: number;
 };
 
+export type DashboardSetSummary = {
+  id: string;
+  name: string;
+  code: string | null;
+  cardCount: number;
+  uniqueCards: number;
+  officialEstimate: number | null;
+  completionPercent: number | null;
+  estimatedValue: string;
+};
+
+export type DashboardOfferPreview = {
+  id: string;
+  wantedName: string;
+  wantedNumber: string | null;
+  offeredName: string;
+  visitorName: string | null;
+  createdAt: string;
+};
+
 export type DashboardData = {
   totalCards: number;
   estimatedValue: string;
   setCount: number;
   deckCount: number;
+  pendingOffers: number;
+  tradeSetCount: number;
   decks: DeckSummary[];
+  sets: DashboardSetSummary[];
+  recentOffers: DashboardOfferPreview[];
 };
 
 export type CardPayload = {
