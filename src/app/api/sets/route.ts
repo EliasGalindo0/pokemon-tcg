@@ -1,5 +1,6 @@
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import { requireUser } from "@/lib/auth";
 import { fail, ok, toResponse } from "@/lib/http";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
@@ -11,14 +12,28 @@ const setSchema = z.object({
 });
 
 export async function GET() {
+  let user;
   try {
-    return ok(await listSets());
+    user = await requireUser();
+  } catch (error) {
+    return toResponse(error);
+  }
+
+  try {
+    return ok(await listSets(user.id));
   } catch (error) {
     return toResponse(error);
   }
 }
 
 export async function POST(request: Request) {
+  let user;
+  try {
+    user = await requireUser();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -31,12 +46,13 @@ export async function POST(request: Request) {
 
   try {
     const existing = await prisma.set.findFirst({
-      where: { name: { equals: parsed.data.name, mode: "insensitive" } },
+      where: { userId: user.id, name: { equals: parsed.data.name, mode: "insensitive" } },
     });
     if (existing) return fail("Já existe uma coleção com esse nome.", 409);
 
     const set = await prisma.set.create({
       data: {
+        userId: user.id,
         name: parsed.data.name,
         code: parsed.data.code?.trim() || null,
       },

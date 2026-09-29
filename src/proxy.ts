@@ -2,10 +2,11 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./lib/auth-cookie";
 
-const WRITE_PREFIXES = ["/cards/new", "/decks/new", "/ofertas"];
+const AUTH_PREFIXES = ["/cards/new", "/decks", "/ofertas", "/album", "/admin", "/conta"];
 
-function isWritePath(pathname: string) {
-  if (WRITE_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
+function needsAuth(pathname: string) {
+  if (pathname === "/") return true;
+  if (AUTH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
     return true;
   }
   if (/^\/cards\/[^/]+\/edit$/.test(pathname)) return true;
@@ -13,11 +14,14 @@ function isWritePath(pathname: string) {
 }
 
 export function proxy(request: NextRequest) {
-  if (!isWritePath(request.nextUrl.pathname)) {
-    return NextResponse.next();
+  const requestHeaders = new Headers(request.headers);
+  requestHeaders.set("x-pathname", request.nextUrl.pathname);
+
+  if (!needsAuth(request.nextUrl.pathname)) {
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
   if (request.cookies.get(SESSION_COOKIE)?.value) {
-    return NextResponse.next();
+    return NextResponse.next({ request: { headers: requestHeaders } });
   }
   const login = new URL("/login", request.url);
   login.searchParams.set("next", request.nextUrl.pathname);
@@ -25,5 +29,21 @@ export function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/cards/new", "/cards/:id/edit", "/decks/new", "/ofertas/:path*"],
+  matcher: [
+    "/",
+    "/album",
+    "/album/:path*",
+    "/decks",
+    "/decks/:path*",
+    "/cards",
+    "/cards/:path*",
+    "/ofertas",
+    "/ofertas/:path*",
+    "/admin",
+    "/admin/:path*",
+    "/conta",
+    "/trocas",
+    "/trocas/:path*",
+    "/login",
+  ],
 };

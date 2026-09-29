@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import {
   acceptTradeOffer,
@@ -44,8 +44,8 @@ export async function proposeTradeOfferAction(input: {
 
 export async function acceptTradeOfferAction(id: string): Promise<OfferActionResult> {
   try {
-    await requireAdmin();
-    await acceptTradeOffer(id);
+    const user = await requireUser();
+    await acceptTradeOffer(user.id, id);
     revalidatePath("/", "layout");
     return { ok: true, message: "Troca aceita." };
   } catch (error) {
@@ -59,8 +59,8 @@ export async function acceptTradeOfferAction(id: string): Promise<OfferActionRes
 
 export async function rejectTradeOfferAction(id: string): Promise<OfferActionResult> {
   try {
-    await requireAdmin();
-    await rejectTradeOffer(id);
+    const user = await requireUser();
+    await rejectTradeOffer(user.id, id);
     revalidatePath("/ofertas");
     revalidatePath("/trocas");
     return { ok: true, message: "Oferta recusada." };

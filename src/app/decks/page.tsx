@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
-import { isAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth-page";
 import { DECK_FORMAT_LABEL, DECK_SIZE } from "@/lib/labels";
 import { listDecks } from "@/services/decks";
 
@@ -13,7 +13,8 @@ export const metadata: Metadata = {
 };
 
 export default async function DecksPage() {
-  const [decks, admin] = await Promise.all([listDecks(), isAdmin()]);
+  const user = await requireAdminPage("/decks");
+  const decks = await listDecks(user.id);
 
   return (
     <div className="space-y-8">
@@ -22,7 +23,7 @@ export default async function DecksPage() {
         title="Decks"
         description="Monte os baralhos que você joga. As cartas do deck são independentes da coleção."
       >
-        {admin ? <ButtonLink href="/decks/new">Novo deck</ButtonLink> : null}
+        <ButtonLink href="/decks/new">Novo deck</ButtonLink>
       </PageHeader>
 
       {decks.length === 0 ? (
@@ -31,11 +32,9 @@ export default async function DecksPage() {
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
             Monte um baralho de {DECK_SIZE} cartas buscando no catálogo.
           </p>
-          {admin ? (
-            <div className="mt-6">
-              <ButtonLink href="/decks/new">Criar deck</ButtonLink>
-            </div>
-          ) : null}
+          <div className="mt-6">
+            <ButtonLink href="/decks/new">Criar deck</ButtonLink>
+          </div>
         </section>
       ) : (
         <ul className="grid gap-4 sm:grid-cols-2">

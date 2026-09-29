@@ -15,6 +15,17 @@ export function LoginForm({ next = "/" }: { next?: string }) {
     <form action={action} className="space-y-4 rounded-3xl border border-line bg-card p-5">
       <input type="hidden" name="next" value={safeNext} />
       <label className="block text-sm">
+        <span className="mb-1.5 block text-muted">Usuário</span>
+        <input
+          type="text"
+          name="username"
+          required
+          autoComplete="username"
+          className={controlClass}
+          placeholder="seu.usuario"
+        />
+      </label>
+      <label className="block text-sm">
         <span className="mb-1.5 block text-muted">Senha</span>
         <input
           type="password"
@@ -22,7 +33,7 @@ export function LoginForm({ next = "/" }: { next?: string }) {
           required
           autoComplete="current-password"
           className={controlClass}
-          placeholder="Sua senha de administrador"
+          placeholder="Sua senha"
         />
       </label>
       {state.message ? (

@@ -173,8 +173,11 @@ function cardNumberQuery(query: string) {
   return match?.[1] ?? null;
 }
 
-async function preferKnownSets(ids: string[]) {
-  const sets = await prisma.set.findMany({ select: { code: true } });
+async function preferKnownSets(ids: string[], userId?: string) {
+  const sets = await prisma.set.findMany({
+    ...(userId ? { where: { userId } } : {}),
+    select: { code: true },
+  });
   const codes = sets.map((set) => set.code?.toLowerCase()).filter((code): code is string => Boolean(code));
   const known = ids.filter((id) => codes.some((code) => id.toLowerCase().startsWith(`${code}-`)));
   const rest = ids.filter((id) => !known.includes(id));
@@ -311,17 +314,17 @@ async function imageIndexForSet(setName: string, language: LanguageValue) {
   return new Map<string, string>();
 }
 
-export async function fillMissingImages() {
+export async function fillMissingImages(userId?: string) {
   try {
-    await writeMissingImages();
+    await writeMissingImages(userId);
   } catch (error) {
     console.error("Não foi possível buscar as imagens do catálogo.", error);
   }
 }
 
-async function writeMissingImages() {
+async function writeMissingImages(userId?: string) {
   const missing = await prisma.card.findMany({
-    where: { imageUrl: null },
+    where: { imageUrl: null, ...(userId ? { userId } : {}) },
     include: { set: true },
   });
   if (missing.length === 0) return;

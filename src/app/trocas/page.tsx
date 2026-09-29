@@ -2,8 +2,9 @@ import type { Metadata } from "next";
 import { PageHeader } from "@/components/layout/page-header";
 import { TradeSetSearch } from "@/components/trades/trade-set-search";
 import { TradeTabs } from "@/components/trades/trade-tabs";
-import { isAdmin } from "@/lib/auth";
+import { getSessionUser, isAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
+import { prisma } from "@/lib/prisma";
 import { getTradeBoard, listTradeSets } from "@/services/trades";
 
 export const dynamic = "force-dynamic";
@@ -18,15 +19,20 @@ export default async function TrocasPage({
 }: {
   searchParams: Promise<{ tab?: string }>;
 }) {
+  const user = await getSessionUser();
   const admin = await isAdmin();
   const { tab } = await searchParams;
-  const sets = await listTradeSets();
+  const sets = user ? await listTradeSets(user.id) : [];
   const activeId = tab && sets.some((set) => set.id === tab) ? tab : (sets[0]?.id ?? null);
 
   let board = null;
   if (activeId) {
     try {
-      board = await getTradeBoard(activeId);
+      const owner = await prisma.tradeSet.findUnique({
+        where: { id: activeId },
+        select: { userId: true },
+      });
+      if (owner) board = await getTradeBoard(owner.userId, activeId);
     } catch (error) {
       if (!(error instanceof AppError && error.status === 404)) throw error;
     }

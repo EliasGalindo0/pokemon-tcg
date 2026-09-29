@@ -86,7 +86,11 @@ export async function searchAlbumSets(query: string, language: LanguageValue): P
     }));
 }
 
-export async function getAlbum(setId: string, language: LanguageValue): Promise<AlbumView> {
+export async function getAlbum(
+  userId: string | null,
+  setId: string,
+  language: LanguageValue,
+): Promise<AlbumView> {
   const id = assertSetId(setId);
   const set = await loadSet(id, language);
   const official = set.cardCount?.official ?? 0;
@@ -94,15 +98,21 @@ export async function getAlbum(setId: string, language: LanguageValue): Promise<
     .map((card) => slotFromBrief(card, official))
     .filter((slot): slot is AlbumSlot => Boolean(slot));
 
-  const localSet = await prisma.set.findFirst({
-    where: {
-      OR: [{ name: { equals: set.name, mode: "insensitive" } }, { code: { equals: set.id, mode: "insensitive" } }],
-    },
-  });
+  const localSet = userId
+    ? await prisma.set.findFirst({
+        where: {
+          userId,
+          OR: [
+            { name: { equals: set.name, mode: "insensitive" } },
+            { code: { equals: set.id, mode: "insensitive" } },
+          ],
+        },
+      })
+    : null;
 
-  if (localSet) {
+  if (localSet && userId) {
     const owned = await prisma.card.findMany({
-      where: { setId: localSet.id },
+      where: { userId, setId: localSet.id },
       select: { id: true, cardNumber: true, quantity: true },
     });
     const byNumber = new Map<string, { ids: string[]; quantity: number }>();
@@ -153,19 +163,19 @@ function payloadFromHit(
   };
 }
 
-export async function ownAlbumCard(setId: string, language: LanguageValue, tcgId: string) {
-  const album = await getAlbum(setId, language);
+export async function ownAlbumCard(userId: string, setId: string, language: LanguageValue, tcgId: string) {
+  const album = await getAlbum(userId, setId, language);
   const slot = album.slots.find((item) => item.tcgId === tcgId);
   if (!slot) throw new AppError("Carta não encontrada nesta coleção.", 404);
   if (slot.owned) return;
 
   const hit = await fetchCatalogCard(language, tcgId);
   if (hit) {
-    await createCard(payloadFromHit(hit, language));
+    await createCard(userId, payloadFromHit(hit, language));
     return;
   }
 
-  await createCard({
+  await createCard(userId, {
     name: slot.name,
     newSetName: album.name,
     newSetCode: album.setId,
@@ -180,12 +190,12 @@ export async function ownAlbumCard(setId: string, language: LanguageValue, tcgId
   });
 }
 
-export async function releaseAlbumCards(ids: string[]) {
-  await deleteCards(ids);
+export async function releaseAlbumCards(userId: string, ids: string[]) {
+  await deleteCards(userId, ids);
 }
 
-export async function ownMissingAlbumCards(setId: string, language: LanguageValue) {
-  const album = await getAlbum(setId, language);
+export async function ownMissingAlbumCards(userId: string, setId: string, language: LanguageValue) {
+  const album = await getAlbum(userId, setId, language);
   const missing = album.slots.filter((slot) => !slot.owned);
   if (missing.length === 0) return 0;
 
@@ -216,5 +226,5 @@ export async function ownMissingAlbumCards(setId: string, language: LanguageValu
     });
   }
 
-  return createCards(payloads);
+  return createCards(userId, payloads);
 }

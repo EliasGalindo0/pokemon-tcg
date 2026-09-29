@@ -72,8 +72,9 @@ export function parseDeckFormat(value: string | undefined): DeckFormatValue {
   return isOneOf(DECK_FORMATS, value) ? value : "STANDARD";
 }
 
-export async function listDecks(): Promise<DeckSummary[]> {
+export async function listDecks(userId: string): Promise<DeckSummary[]> {
   const decks = await prisma.deck.findMany({
+    where: { userId },
     include: {
       coverEntry: { include: { card: { select: { imageUrl: true, name: true } } } },
       entries: {
@@ -97,9 +98,9 @@ function localNumber(value: string | null | undefined) {
   return head.replace(/^0+(?=\d)/, "");
 }
 
-export async function getDeck(id: string): Promise<DeckDetail | null> {
-  const deck = await prisma.deck.findUnique({
-    where: { id },
+export async function getDeck(userId: string, id: string): Promise<DeckDetail | null> {
+  const deck = await prisma.deck.findFirst({
+    where: { id, userId },
     include: {
       coverEntry: { include: { card: { select: { imageUrl: true, name: true } } } },
       entries: {
@@ -151,17 +152,17 @@ export async function getDeck(id: string): Promise<DeckDetail | null> {
   return { ...summary(deck), entries };
 }
 
-export async function createDeck(input: DeckPayload) {
+export async function createDeck(userId: string, input: DeckPayload) {
   const deck = await prisma.deck.create({
-    data: { name: input.name, format: input.format },
+    data: { userId, name: input.name, format: input.format },
     include: { entries: { select: { quantity: true } } },
   });
   await bumpCacheVersion();
   return summary(deck);
 }
 
-export async function updateDeck(id: string, input: DeckPayload) {
-  const existing = await prisma.deck.findUnique({ where: { id } });
+export async function updateDeck(userId: string, id: string, input: DeckPayload) {
+  const existing = await prisma.deck.findFirst({ where: { id, userId } });
   if (!existing) throw new AppError("Deck não encontrado.", 404);
   const deck = await prisma.deck.update({
     where: { id },
@@ -172,14 +173,17 @@ export async function updateDeck(id: string, input: DeckPayload) {
   return summary(deck);
 }
 
-export async function deleteDeck(id: string) {
-  const existing = await prisma.deck.findUnique({ where: { id } });
+export async function deleteDeck(userId: string, id: string) {
+  const existing = await prisma.deck.findFirst({ where: { id, userId } });
   if (!existing) throw new AppError("Deck não encontrado.", 404);
   await prisma.deck.delete({ where: { id } });
   await bumpCacheVersion();
 }
 
-export async function setDeckCover(deckId: string, entryId: string) {
+export async function setDeckCover(userId: string, deckId: string, entryId: string) {
+  const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
+  if (!deck) throw new AppError("Deck não encontrado.", 404);
+
   const entry = await prisma.deckEntry.findFirst({
     where: { id: entryId, deckId },
     include: { card: { select: { imageUrl: true } } },
@@ -194,8 +198,8 @@ export async function setDeckCover(deckId: string, entryId: string) {
   await bumpCacheVersion();
 }
 
-export async function setDeckCardQuantity(deckId: string, cardId: string, quantity: number) {
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+export async function setDeckCardQuantity(userId: string, deckId: string, cardId: string, quantity: number) {
+  const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
   if (quantity <= 0) {
@@ -208,7 +212,7 @@ export async function setDeckCardQuantity(deckId: string, cardId: string, quanti
     return;
   }
 
-  const card = await prisma.card.findUnique({ where: { id: cardId } });
+  const card = await prisma.card.findFirst({ where: { id: cardId, userId } });
   if (!card) throw new AppError("Carta não encontrada na coleção.", 404);
 
   await prisma.deckEntry.upsert({
@@ -219,29 +223,29 @@ export async function setDeckCardQuantity(deckId: string, cardId: string, quanti
   await bumpCacheVersion();
 }
 
-async function matchingCollectionCard(hit: CatalogHit) {
+async function matchingCollectionCard(userId: string, hit: CatalogHit) {
   const number = localNumber(hit.cardNumber);
   if (!number) return null;
   const cards = await prisma.card.findMany({
-    where: { set: { name: { equals: hit.setName, mode: "insensitive" } } },
+    where: { userId, set: { name: { equals: hit.setName, mode: "insensitive" } } },
     orderBy: { quantity: "desc" },
   });
   return cards.find((card) => localNumber(card.cardNumber) === number) ?? null;
 }
 
-export async function addCatalogCardToDeck(deckId: string, tcgId: string) {
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+export async function addCatalogCardToDeck(userId: string, deckId: string, tcgId: string) {
+  const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
   const hit = (await fetchCatalogCard("PT_BR", tcgId)) ?? (await fetchCatalogCard("EN", tcgId));
   if (!hit) throw new AppError("Carta não encontrada no catálogo.", 404);
 
-  const owned = await matchingCollectionCard(hit);
+  const owned = await matchingCollectionCard(userId, hit);
   if (owned) {
     const current = await prisma.deckEntry.findUnique({
       where: { deckId_cardId: { deckId, cardId: owned.id } },
     });
-    await setDeckCardQuantity(deckId, owned.id, (current?.quantity ?? 0) + 1);
+    await setDeckCardQuantity(userId, deckId, owned.id, (current?.quantity ?? 0) + 1);
     return;
   }
 
@@ -266,8 +270,8 @@ export async function addCatalogCardToDeck(deckId: string, tcgId: string) {
   await bumpCacheVersion();
 }
 
-export async function setDeckCatalogQuantity(deckId: string, tcgId: string, quantity: number) {
-  const deck = await prisma.deck.findUnique({ where: { id: deckId } });
+export async function setDeckCatalogQuantity(userId: string, deckId: string, tcgId: string, quantity: number) {
+  const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
   if (quantity <= 0) {
@@ -286,6 +290,6 @@ export async function setDeckCatalogQuantity(deckId: string, tcgId: string, quan
   await bumpCacheVersion();
 }
 
-export async function countDecks() {
-  return prisma.deck.count();
+export async function countDecks(userId: string) {
+  return prisma.deck.count({ where: { userId } });
 }

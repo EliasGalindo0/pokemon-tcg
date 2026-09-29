@@ -58,12 +58,19 @@ function toDto(row: {
   };
 }
 
-async function ownerHasCard(language: LanguageValue, setName: string, setCode: string | null, cardNumber: string | null) {
+async function ownerHasCard(
+  userId: string,
+  language: LanguageValue,
+  setName: string,
+  setCode: string | null,
+  cardNumber: string | null,
+) {
   const localId = localNumber(cardNumber);
   if (!localId) return false;
 
   const localSet = await prisma.set.findFirst({
     where: {
+      userId,
       OR: [
         { name: { equals: setName, mode: "insensitive" } },
         ...(setCode ? [{ code: { equals: setCode, mode: "insensitive" as const } }] : []),
@@ -73,19 +80,22 @@ async function ownerHasCard(language: LanguageValue, setName: string, setCode: s
   if (!localSet) return false;
 
   const cards = await prisma.card.findMany({
-    where: { setId: localSet.id, language },
+    where: { userId, setId: localSet.id, language },
     select: { cardNumber: true },
   });
   return cards.some((card) => localNumber(card.cardNumber) === localId);
 }
 
-export async function countPendingTradeOffers() {
-  return prisma.tradeOffer.count({ where: { status: "PENDING" } });
+export async function countPendingTradeOffers(userId: string) {
+  return prisma.tradeOffer.count({ where: { userId, status: "PENDING" } });
 }
 
-export async function listTradeOffers(status?: TradeOfferDTO["status"]): Promise<TradeOfferDTO[]> {
+export async function listTradeOffers(
+  userId: string,
+  status?: TradeOfferDTO["status"],
+): Promise<TradeOfferDTO[]> {
   const rows = await prisma.tradeOffer.findMany({
-    where: status ? { status } : undefined,
+    where: { userId, ...(status ? { status } : {}) },
     include: { wantedTradeSet: { select: { name: true } } },
     orderBy: [{ status: "asc" }, { createdAt: "desc" }],
     take: 100,
@@ -123,6 +133,7 @@ export async function createTradeOffer(input: TradeOfferPayload) {
 
   const pendingDup = await prisma.tradeOffer.findFirst({
     where: {
+      userId: tradeSet.userId,
       status: "PENDING",
       wantedTradeSetId: input.wantedTradeSetId,
       wantedTcgId: input.wantedTcgId,
@@ -134,6 +145,7 @@ export async function createTradeOffer(input: TradeOfferPayload) {
 
   const row = await prisma.tradeOffer.create({
     data: {
+      userId: tradeSet.userId,
       wantedTradeSetId: input.wantedTradeSetId,
       wantedTcgId: wanted.tcgId,
       wantedName: wanted.name,
@@ -156,8 +168,8 @@ export async function createTradeOffer(input: TradeOfferPayload) {
   return toDto(row);
 }
 
-export async function rejectTradeOffer(id: string) {
-  const offer = await prisma.tradeOffer.findUnique({ where: { id } });
+export async function rejectTradeOffer(userId: string, id: string) {
+  const offer = await prisma.tradeOffer.findFirst({ where: { id, userId } });
   if (!offer) throw new AppError("Oferta não encontrada.", 404);
   if (offer.status !== "PENDING") throw new AppError("Esta oferta já foi resolvida.", 409);
 
@@ -167,9 +179,9 @@ export async function rejectTradeOffer(id: string) {
   });
 }
 
-export async function acceptTradeOffer(id: string) {
-  const offer = await prisma.tradeOffer.findUnique({
-    where: { id },
+export async function acceptTradeOffer(userId: string, id: string) {
+  const offer = await prisma.tradeOffer.findFirst({
+    where: { id, userId },
     include: { wantedTradeSet: true },
   });
   if (!offer) throw new AppError("Oferta não encontrada.", 404);
@@ -192,13 +204,14 @@ export async function acceptTradeOffer(id: string) {
     : ("PT_BR" as LanguageValue);
 
   const alreadyOwned = await ownerHasCard(
+    userId,
     language,
     offer.offeredSetName,
     offer.offeredSetCode,
     offer.offeredNumber,
   );
 
-  await setTradeQuantity(offer.wantedTradeSetId, offer.wantedTcgId, entry.quantity - 1);
+  await setTradeQuantity(userId, offer.wantedTradeSetId, offer.wantedTcgId, entry.quantity - 1);
 
   if (alreadyOwned) {
     const raw = await fetchTcg<{ set?: { id?: string } }>(
@@ -208,17 +221,17 @@ export async function acceptTradeOffer(id: string) {
     const tcgSetId = raw?.set?.id || offer.offeredSetCode;
     if (!tcgSetId) throw new AppError("Não foi possível localizar a coleção da carta oferecida.", 400);
 
-    const tradeSet = await createTradeSet(tcgSetId, language);
+    const tradeSet = await createTradeSet(userId, tcgSetId, language);
     const current = await prisma.tradeEntry.findUnique({
       where: { tradeSetId_tcgId: { tradeSetId: tradeSet.id, tcgId: offer.offeredTcgId } },
     });
-    await setTradeQuantity(tradeSet.id, offer.offeredTcgId, (current?.quantity ?? 0) + 1);
+    await setTradeQuantity(userId, tradeSet.id, offer.offeredTcgId, (current?.quantity ?? 0) + 1);
   } else {
     const hit = await fetchCatalogCard(language, offer.offeredTcgId);
     const rarity: RarityValue = isOneOf(RARITIES, offer.offeredRarity)
       ? offer.offeredRarity
       : hit?.rarity ?? "COMMON";
-    await createCard({
+    await createCard(userId, {
       name: hit?.name ?? offer.offeredName,
       newSetName: hit?.setName ?? offer.offeredSetName,
       newSetCode: hit?.setCode || offer.offeredSetCode || undefined,

@@ -6,7 +6,7 @@ import { CardBack } from "@/components/cards/card-back";
 import { SetTag } from "@/components/cards/set-tag";
 import { DeleteCardButton } from "@/components/cards/delete-card-button";
 import { ButtonLink } from "@/components/ui/button";
-import { isAdmin } from "@/lib/auth";
+import { getSessionUser, isAdmin } from "@/lib/auth";
 import { formatDate, formatMoney, formatMoneyOrDash, lotValue } from "@/lib/format";
 import { CONDITION_LABEL, LANGUAGE_LABEL } from "@/lib/labels";
 import { getCard } from "@/services/cards";
@@ -17,7 +17,8 @@ type Props = { params: Promise<{ id: string }> };
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { id } = await params;
-  const card = await getCard(id);
+  const user = await getSessionUser();
+  const card = user ? await getCard(user.id, id) : null;
   return { title: card?.name ?? "Carta" };
 }
 
@@ -32,7 +33,11 @@ function Fact({ label, value }: { label: string; value: string }) {
 
 export default async function CardDetailPage({ params }: Props) {
   const { id } = await params;
-  const [card, admin] = await Promise.all([getCard(id), isAdmin()]);
+  const user = await getSessionUser();
+  const [card, admin] = await Promise.all([
+    user ? getCard(user.id, id) : null,
+    isAdmin(),
+  ]);
   if (!card) notFound();
 
   return (

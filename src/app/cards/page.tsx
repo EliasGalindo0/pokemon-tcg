@@ -4,9 +4,9 @@ import { CardTile } from "@/components/cards/card-tile";
 import { Pagination } from "@/components/cards/pagination";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
-import { isAdmin } from "@/lib/auth";
+import { getSessionUser, isAdmin } from "@/lib/auth";
 import { parseCardQuery } from "@/lib/card-query";
-import { listCards } from "@/services/cards";
+import { listCards, PAGE_SIZE } from "@/services/cards";
 import { listSets } from "@/services/sets";
 
 export const dynamic = "force-dynamic";
@@ -27,10 +27,16 @@ export default async function GalleryPage({
     page?: string;
   }>;
 }) {
+  const user = await getSessionUser();
   const admin = await isAdmin();
   const raw = await searchParams;
   const query = parseCardQuery(raw);
-  const [sets, result] = await Promise.all([listSets(), listCards(query)]);
+  const [sets, result] = await Promise.all([
+    user ? listSets(user.id) : [],
+    user
+      ? listCards(user.id, query)
+      : { items: [], page: 1, pageSize: PAGE_SIZE, total: 0, pageCount: 1 },
+  ]);
   const hasFilters = Boolean(
     query.q || query.setId || query.rarity || query.condition || (query.sort && query.sort !== "recent"),
   );

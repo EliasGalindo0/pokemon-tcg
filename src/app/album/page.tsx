@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { requireAdminPage } from "@/lib/auth-page";
 import { LANGUAGE_LABEL, LANGUAGES } from "@/lib/labels";
 import { albumLanguage, searchAlbumSets } from "@/services/album";
 
@@ -16,6 +17,7 @@ export default async function AlbumPage({
 }: {
   searchParams: Promise<{ q?: string; language?: string }>;
 }) {
+  await requireAdminPage("/album");
   const raw = await searchParams;
   const query = raw.q?.trim() ?? "";
   const language = albumLanguage(raw.language);
@@ -73,6 +75,7 @@ export default async function AlbumPage({
                 className="flex items-center gap-4 rounded-3xl border border-line bg-card p-4 transition hover:border-navy/30"
               >
                 {set.logo ? (
+                  // eslint-disable-next-line @next/next/no-img-element
                   <img src={set.logo} alt="" className="h-14 w-24 object-contain" />
                 ) : (
                   <span className="grid h-14 w-24 place-items-center rounded-2xl bg-paper text-xs text-muted">

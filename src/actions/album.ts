@@ -18,9 +18,9 @@ function failure(error: unknown) {
 
 export async function toggleAlbumSlot(setId: string, language: string, tcgId: string, ownedIds: string[]) {
   try {
-    await requireAdmin();
-    if (ownedIds.length > 0) await releaseAlbumCards(ownedIds);
-    else await ownAlbumCard(setId, albumLanguage(language), tcgId);
+    const user = await requireAdmin();
+    if (ownedIds.length > 0) await releaseAlbumCards(user.id, ownedIds);
+    else await ownAlbumCard(user.id, setId, albumLanguage(language), tcgId);
     invalidate();
     return { ok: true as const };
   } catch (error) {
@@ -30,8 +30,8 @@ export async function toggleAlbumSlot(setId: string, language: string, tcgId: st
 
 export async function ownEntireAlbum(setId: string, language: string) {
   try {
-    await requireAdmin();
-    const added = await ownMissingAlbumCards(setId, albumLanguage(language));
+    const user = await requireAdmin();
+    const added = await ownMissingAlbumCards(user.id, setId, albumLanguage(language));
     invalidate();
     return { ok: true as const, added };
   } catch (error) {

@@ -1,11 +1,18 @@
 import { revalidatePath } from "next/cache";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { parseCardQuery } from "@/lib/card-query";
 import { fail, ok, toResponse } from "@/lib/http";
 import { parseCardPayload } from "@/lib/validators";
 import { createCard, listCards } from "@/services/cards";
 
 export async function GET(request: Request) {
+  let user;
+  try {
+    user = await requireUser();
+  } catch (error) {
+    return toResponse(error);
+  }
+
   const { searchParams } = new URL(request.url);
   const query = parseCardQuery({
     q: searchParams.get("q") ?? undefined,
@@ -16,15 +23,16 @@ export async function GET(request: Request) {
   });
 
   try {
-    return ok(await listCards(query));
+    return ok(await listCards(user.id, query));
   } catch (error) {
     return toResponse(error);
   }
 }
 
 export async function POST(request: Request) {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireUser();
   } catch (error) {
     return toResponse(error);
   }
@@ -42,7 +50,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const card = await createCard(parsed.data);
+    const card = await createCard(user.id, parsed.data);
     revalidatePath("/", "layout");
     return ok(card, 201);
   } catch (error) {

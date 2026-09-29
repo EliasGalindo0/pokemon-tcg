@@ -1,16 +1,15 @@
 import type { Metadata } from "next";
-import { redirect } from "next/navigation";
 import { createDeckAction } from "@/actions/decks";
 import { DeckForm } from "@/components/decks/deck-form";
 import { PageHeader } from "@/components/layout/page-header";
-import { isAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth-page";
 
 export const metadata: Metadata = {
   title: "Novo deck",
 };
 
 export default async function NewDeckPage() {
-  if (!(await isAdmin())) redirect("/login?next=/decks/new");
+  await requireAdminPage("/decks/new");
 
   return (
     <div className="mx-auto max-w-xl space-y-6">

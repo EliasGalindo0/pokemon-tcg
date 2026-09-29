@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { AppError } from "@/lib/errors";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import { parseCardPayload } from "@/lib/validators";
 import { saveUpload } from "@/lib/uploads";
 import { createCard, deleteCard, updateCard } from "@/services/cards";
@@ -31,8 +31,9 @@ function payloadFromForm(formData: FormData) {
 }
 
 export async function createCardAction(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireUser();
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
@@ -44,7 +45,7 @@ export async function createCardAction(_prev: ActionState, formData: FormData): 
 
   try {
     const imageUrl = await imageFromForm(formData, parsed.data.imageUrl);
-    await createCard({ ...parsed.data, imageUrl });
+    await createCard(user.id, { ...parsed.data, imageUrl });
   } catch (error) {
     unstable_rethrow(error);
     const message = error instanceof AppError ? error.message : "Não foi possível salvar a carta.";
@@ -60,8 +61,9 @@ export async function updateCardAction(
   _prev: ActionState,
   formData: FormData,
 ): Promise<ActionState> {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireUser();
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
@@ -73,7 +75,7 @@ export async function updateCardAction(
 
   try {
     const imageUrl = await imageFromForm(formData, parsed.data.imageUrl);
-    await updateCard(id, { ...parsed.data, imageUrl });
+    await updateCard(user.id, id, { ...parsed.data, imageUrl });
   } catch (error) {
     unstable_rethrow(error);
     const message = error instanceof AppError ? error.message : "Não foi possível atualizar a carta.";
@@ -85,8 +87,8 @@ export async function updateCardAction(
 }
 
 export async function deleteCardAction(id: string) {
-  await requireAdmin();
-  await deleteCard(id);
+  const user = await requireUser();
+  await deleteCard(user.id, id);
   invalidate();
   redirect("/cards");
 }

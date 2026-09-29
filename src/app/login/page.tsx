@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { LoginForm } from "@/components/auth/login-form";
-import { isAdmin } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +15,12 @@ export default async function LoginPage({
 }: {
   searchParams: Promise<{ next?: string }>;
 }) {
-  if (await isAdmin()) redirect("/");
+  const user = await getSessionUser();
   const { next } = await searchParams;
+  if (user) {
+    if (user.mustChangeCredentials) redirect("/conta");
+    redirect(user.role === "ADMIN" ? next || "/" : next || "/trocas");
+  }
 
   return (
     <div className="mx-auto max-w-md space-y-6">
@@ -24,8 +28,7 @@ export default async function LoginPage({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Acesso</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight">Entrar</h1>
         <p className="mt-2 text-sm text-muted">
-          Só o dono da coleção pode cadastrar e editar. Visitantes continuam no modo leitura para
-          propor trocas.
+          Entre com o usuário liberado pelo administrador. Visitantes podem ver as trocas sem login.
         </p>
       </div>
       <LoginForm next={next ?? "/"} />

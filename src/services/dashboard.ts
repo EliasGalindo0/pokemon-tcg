@@ -6,10 +6,10 @@ import { countDecks } from "@/services/decks";
 import { fillMissingImages } from "@/services/catalog";
 import type { CardDTO, DashboardData } from "@/types/card";
 
-export async function getDashboard(): Promise<DashboardData> {
-  await fillMissingImages();
+export async function getDashboard(userId: string): Promise<DashboardData> {
+  await fillMissingImages(userId);
   const version = await getCacheVersion();
-  const key = `v${version}:dashboard:v4`;
+  const key = `v${version}:u:${userId}:dashboard:v4`;
   const cached = await cacheGet<DashboardData>(key);
   if (cached) return cached;
 
@@ -19,22 +19,24 @@ export async function getDashboard(): Promise<DashboardData> {
         COALESCE(SUM("quantity"), 0)::int AS "totalCards",
         COALESCE(SUM("marketValue" * "quantity"), 0)::text AS "estimatedValue"
       FROM "Card"
+      WHERE "userId" = ${userId}
     `,
-    prisma.set.count(),
-    countDecks(),
+    prisma.set.count({ where: { userId } }),
+    countDecks(userId),
     prisma.card.findMany({
+      where: { userId },
       include: { set: true },
       orderBy: { createdAt: "desc" },
       take: 4,
     }),
-    rarestCardIds(4),
+    rarestCardIds(userId, 4),
   ]);
 
   const rareRows =
     rareIds.length === 0
       ? []
       : await prisma.card.findMany({
-          where: { id: { in: rareIds } },
+          where: { id: { in: rareIds }, userId },
           include: { set: true },
         });
   const rareById = new Map(rareRows.map((card) => [card.id, toCardDto(card)]));

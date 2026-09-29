@@ -26,8 +26,9 @@ function invalidate() {
 }
 
 export async function createDeckAction(_prev: DeckActionState, formData: FormData): Promise<DeckActionState> {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireAdmin();
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
@@ -37,7 +38,7 @@ export async function createDeckAction(_prev: DeckActionState, formData: FormDat
 
   let id = "";
   try {
-    const deck = await createDeck(parsed.data);
+    const deck = await createDeck(user.id, parsed.data);
     id = deck.id;
   } catch (error) {
     unstable_rethrow(error);
@@ -53,8 +54,9 @@ export async function updateDeckAction(
   _prev: DeckActionState,
   formData: FormData,
 ): Promise<DeckActionState> {
+  let user;
   try {
-    await requireAdmin();
+    user = await requireAdmin();
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
@@ -63,7 +65,7 @@ export async function updateDeckAction(
   if (!parsed.success) return { fieldErrors: parsed.fieldErrors, message: "Revise os campos destacados." };
 
   try {
-    await updateDeck(id, parsed.data);
+    await updateDeck(user.id, id, parsed.data);
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Não foi possível atualizar o deck." };
@@ -74,16 +76,16 @@ export async function updateDeckAction(
 }
 
 export async function deleteDeckAction(id: string) {
-  await requireAdmin();
-  await deleteDeck(id);
+  const user = await requireAdmin();
+  await deleteDeck(user.id, id);
   invalidate();
   redirect("/decks");
 }
 
 export async function setDeckCardAction(deckId: string, cardId: string, quantity: number) {
   try {
-    await requireAdmin();
-    await setDeckCardQuantity(deckId, cardId, quantity);
+    const user = await requireAdmin();
+    await setDeckCardQuantity(user.id, deckId, cardId, quantity);
     invalidate();
     return { ok: true as const };
   } catch (error) {
@@ -95,8 +97,8 @@ export async function setDeckCardAction(deckId: string, cardId: string, quantity
 
 export async function addCatalogCardAction(deckId: string, tcgId: string) {
   try {
-    await requireAdmin();
-    await addCatalogCardToDeck(deckId, tcgId);
+    const user = await requireAdmin();
+    await addCatalogCardToDeck(user.id, deckId, tcgId);
     invalidate();
     return { ok: true as const };
   } catch (error) {
@@ -108,8 +110,8 @@ export async function addCatalogCardAction(deckId: string, tcgId: string) {
 
 export async function setDeckCatalogAction(deckId: string, tcgId: string, quantity: number) {
   try {
-    await requireAdmin();
-    await setDeckCatalogQuantity(deckId, tcgId, quantity);
+    const user = await requireAdmin();
+    await setDeckCatalogQuantity(user.id, deckId, tcgId, quantity);
     invalidate();
     return { ok: true as const };
   } catch (error) {
@@ -121,8 +123,8 @@ export async function setDeckCatalogAction(deckId: string, tcgId: string, quanti
 
 export async function setDeckCoverAction(deckId: string, entryId: string) {
   try {
-    await requireAdmin();
-    await setDeckCover(deckId, entryId);
+    const user = await requireAdmin();
+    await setDeckCover(user.id, deckId, entryId);
     invalidate();
     return { ok: true as const };
   } catch (error) {

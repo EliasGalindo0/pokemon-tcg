@@ -66,17 +66,49 @@ enum TradeOfferStatus {
   CANCELLED
 }
 
+enum UserRole {
+  ADMIN
+  MEMBER
+}
+
+model User {
+  id                     String     @id @default(cuid())
+  username               String     @unique
+  displayName            String
+  passwordHash           String
+  role                   UserRole   @default(MEMBER)
+  active                 Boolean    @default(true)
+  mustChangeCredentials  Boolean    @default(false)
+  createdAt              DateTime   @default(now())
+  updatedAt              DateTime   @updatedAt
+  sets                   Set[]
+  cards                  Card[]
+  decks                  Deck[]
+  tradeSets              TradeSet[]
+  tradeOffers            TradeOffer[]
+
+  @@index([role])
+  @@index([active])
+}
+
 model Set {
   id        String   @id @default(cuid())
-  name      String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
   code      String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   cards     Card[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 model Card {
   id            String    @id @default(cuid())
+  userId        String
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   setId         String
   set           Set       @relation(fields: [setId], references: [id], onDelete: Restrict)
@@ -92,6 +124,7 @@ model Card {
   updatedAt     DateTime  @updatedAt
   deckEntries   DeckEntry[]
 
+  @@index([userId])
   @@index([name])
   @@index([setId])
   @@index([rarity])
@@ -101,6 +134,8 @@ model Card {
 
 model Deck {
   id           String      @id @default(cuid())
+  userId       String
+  user         User        @relation(fields: [userId], references: [id], onDelete: Cascade)
   name         String
   format       DeckFormat  @default(STANDARD)
   coverEntryId String?     @unique
@@ -109,6 +144,7 @@ model Deck {
   updatedAt    DateTime    @updatedAt
   entries      DeckEntry[]
 
+  @@index([userId])
   @@index([name])
 }
 
@@ -135,6 +171,8 @@ model DeckEntry {
 
 model TradeSet {
   id        String       @id @default(cuid())
+  userId    String
+  user      User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   tcgSetId  String
   name      String
   logoUrl   String?
@@ -145,7 +183,8 @@ model TradeSet {
   entries   TradeEntry[]
   offers    TradeOffer[]
 
-  @@unique([tcgSetId, language])
+  @@unique([userId, tcgSetId, language])
+  @@index([userId])
   @@index([name])
 }
 
@@ -168,6 +207,8 @@ model TradeEntry {
 
 model TradeOffer {
   id               String           @id @default(cuid())
+  userId           String
+  user             User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   status           TradeOfferStatus @default(PENDING)
   wantedTradeSetId String
   wantedTradeSet   TradeSet         @relation(fields: [wantedTradeSetId], references: [id], onDelete: Cascade)
@@ -189,6 +230,6 @@ model TradeOffer {
   updatedAt        DateTime         @updatedAt
   resolvedAt       DateTime?
 
-  @@index([status, createdAt])
+  @@index([userId, status, createdAt])
   @@index([wantedTradeSetId])
 }

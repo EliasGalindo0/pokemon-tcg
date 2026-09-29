@@ -3,7 +3,7 @@ import { CardTile } from "@/components/cards/card-tile";
 import { StatCard } from "@/components/dashboard/stat-card";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
-import { isAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth-page";
 import { formatMoney } from "@/lib/format";
 import { getDashboard } from "@/services/dashboard";
 
@@ -14,7 +14,8 @@ export const metadata: Metadata = {
 };
 
 export default async function DashboardPage() {
-  const [dashboard, admin] = await Promise.all([getDashboard(), isAdmin()]);
+  const user = await requireAdminPage("/");
+  const dashboard = await getDashboard(user.id);
   const empty = dashboard.totalCards === 0;
 
   return (
@@ -24,18 +25,12 @@ export default async function DashboardPage() {
         title="Painel"
         description="Quantidade, valor de mercado e os decks que você está montando."
       >
-        {admin ? (
-          <div className="flex flex-wrap gap-2">
-            <ButtonLink href="/decks/new" variant="secondary">
-              Novo deck
-            </ButtonLink>
-            <ButtonLink href="/cards/new">Cadastrar carta</ButtonLink>
-          </div>
-        ) : (
-          <ButtonLink href="/trocas" variant="secondary">
-            Ver trocas
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/decks/new" variant="secondary">
+            Novo deck
           </ButtonLink>
-        )}
+          <ButtonLink href="/cards/new">Cadastrar carta</ButtonLink>
+        </div>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -61,11 +56,9 @@ export default async function DashboardPage() {
           </p>
           <div className="mt-6 flex flex-wrap justify-center gap-3">
             <ButtonLink href="/album">Abrir álbum</ButtonLink>
-            {admin ? (
-              <ButtonLink href="/cards/new" variant="secondary">
-                Cadastrar carta
-              </ButtonLink>
-            ) : null}
+            <ButtonLink href="/cards/new" variant="secondary">
+              Cadastrar carta
+            </ButtonLink>
           </div>
         </section>
       ) : (

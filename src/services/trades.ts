@@ -77,8 +77,9 @@ function slotFromBrief(card: TcgSetCard, official: number): TradeSlot | null {
   };
 }
 
-export async function listTradeSets(): Promise<TradeSetSummary[]> {
+export async function listTradeSets(userId: string): Promise<TradeSetSummary[]> {
   const rows = await prisma.tradeSet.findMany({
+    where: { userId },
     orderBy: { updatedAt: "desc" },
     include: { entries: { select: { quantity: true } } },
   });
@@ -132,16 +133,17 @@ export async function resolveTradeSetsFromCardNumber(
   return candidates;
 }
 
-export async function createTradeSet(tcgSetId: string, language: LanguageValue) {
+export async function createTradeSet(userId: string, tcgSetId: string, language: LanguageValue) {
   const set = await loadCatalogSet(tcgSetId, language);
   const official = set.cardCount?.official ?? 0;
   const existing = await prisma.tradeSet.findUnique({
-    where: { tcgSetId_language: { tcgSetId: set.id!, language } },
+    where: { userId_tcgSetId_language: { userId, tcgSetId: set.id!, language } },
   });
   if (existing) return existing;
 
   return prisma.tradeSet.create({
     data: {
+      userId,
       tcgSetId: set.id!,
       name: set.name!,
       logoUrl: catalogImageUrl(set.logo, "low"),
@@ -151,9 +153,9 @@ export async function createTradeSet(tcgSetId: string, language: LanguageValue) 
   });
 }
 
-export async function getTradeBoard(id: string): Promise<TradeBoard> {
-  const tradeSet = await prisma.tradeSet.findUnique({
-    where: { id },
+export async function getTradeBoard(userId: string, id: string): Promise<TradeBoard> {
+  const tradeSet = await prisma.tradeSet.findFirst({
+    where: { id, userId },
     include: { entries: true },
   });
   if (!tradeSet) throw new AppError("Coleção de troca não encontrada.", 404);
@@ -183,8 +185,8 @@ export async function getTradeBoard(id: string): Promise<TradeBoard> {
   };
 }
 
-export async function setTradeQuantity(tradeSetId: string, tcgId: string, quantity: number) {
-  const tradeSet = await prisma.tradeSet.findUnique({ where: { id: tradeSetId } });
+export async function setTradeQuantity(userId: string, tradeSetId: string, tcgId: string, quantity: number) {
+  const tradeSet = await prisma.tradeSet.findFirst({ where: { id: tradeSetId, userId } });
   if (!tradeSet) throw new AppError("Coleção de troca não encontrada.", 404);
 
   const next = Math.max(0, Math.floor(quantity));
@@ -227,7 +229,9 @@ export async function setTradeQuantity(tradeSetId: string, tcgId: string, quanti
   await prisma.tradeSet.update({ where: { id: tradeSetId }, data: { updatedAt: new Date() } });
 }
 
-export async function deleteTradeSet(id: string) {
+export async function deleteTradeSet(userId: string, id: string) {
+  const existing = await prisma.tradeSet.findFirst({ where: { id, userId } });
+  if (!existing) throw new AppError("Coleção de troca não encontrada.", 404);
   await prisma.tradeSet.delete({ where: { id } });
 }
 
@@ -245,14 +249,17 @@ async function resolveTcgSetId(language: LanguageValue, setCode: string | null, 
   return first?.id ?? null;
 }
 
-export async function syncTradeExcessFromCard(card: {
+export async function syncTradeExcessFromCard(
+  userId: string,
+  card: {
   name: string;
   cardNumber: string | null;
   quantity: number;
   language: LanguageValue;
   imageUrl: string | null;
   set: { name: string; code: string | null };
-}) {
+},
+) {
   const excess = Math.max(0, Math.floor(card.quantity) - 1);
   const localId = localNumber(card.cardNumber);
   if (!localId) return;
@@ -270,7 +277,7 @@ export async function syncTradeExcessFromCard(card: {
   const match = catalog.cards?.find((item) => localNumber(item.localId) === localId);
   if (!match?.id || !match.name || match.localId === undefined) return;
 
-  const tradeSet = await createTradeSet(tcgSetId, card.language);
+  const tradeSet = await createTradeSet(userId, tcgSetId, card.language);
   const official = catalog.cardCount?.official ?? tradeSet.official;
   const number = printedNumber(String(match.localId), official);
   const imageUrl = catalogImageUrl(match.image, "low") ?? card.imageUrl;

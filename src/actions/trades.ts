@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { AppError } from "@/lib/errors";
-import { requireAdmin } from "@/lib/auth";
+import { requireUser } from "@/lib/auth";
 import {
   createTradeSet,
   deleteTradeSet,
@@ -24,7 +24,7 @@ function failure(error: unknown, fallback: string) {
 
 export async function searchTradeSetsAction(query: string, language: string) {
   try {
-    await requireAdmin();
+    await requireUser();
     const items = await resolveTradeSetsFromCardNumber(query, tradeLanguage(language));
     return { ok: true as const, items };
   } catch (error) {
@@ -34,8 +34,8 @@ export async function searchTradeSetsAction(query: string, language: string) {
 
 export async function createTradeSetAction(tcgSetId: string, language: string) {
   try {
-    await requireAdmin();
-    const row = await createTradeSet(tcgSetId, tradeLanguage(language));
+    const user = await requireUser();
+    const row = await createTradeSet(user.id, tcgSetId, tradeLanguage(language));
     invalidate();
     return { ok: true as const, id: row.id };
   } catch (error) {
@@ -45,8 +45,8 @@ export async function createTradeSetAction(tcgSetId: string, language: string) {
 
 export async function setTradeQuantityAction(tradeSetId: string, tcgId: string, quantity: number) {
   try {
-    await requireAdmin();
-    await setTradeQuantity(tradeSetId, tcgId, quantity);
+    const user = await requireUser();
+    await setTradeQuantity(user.id, tradeSetId, tcgId, quantity);
     invalidate();
     return { ok: true as const };
   } catch (error) {
@@ -55,8 +55,8 @@ export async function setTradeQuantityAction(tradeSetId: string, tcgId: string, 
 }
 
 export async function deleteTradeSetAction(id: string) {
-  await requireAdmin();
-  await deleteTradeSet(id);
+  const user = await requireUser();
+  await deleteTradeSet(user.id, id);
   invalidate();
   redirect("/trocas");
 }

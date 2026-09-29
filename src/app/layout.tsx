@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import { Pokeball } from "@/components/brand/pokeball";
 import { SiteHeader } from "@/components/layout/site-header";
+import { enforceCredentialChange } from "@/lib/enforce-credentials";
 import "./globals.css";
 
 const outfit = Outfit({
@@ -22,7 +23,9 @@ export const metadata: Metadata = {
   description: "Coleção, álbum e decks de Pokémon TCG.",
 };
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  await enforceCredentialChange();
+
   return (
     <html lang="pt-BR" className={`${outfit.variable} ${fraunces.variable} h-full antialiased`}>
       <body className="relative min-h-full font-sans text-ink">
@@ -41,3 +44,4 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     </html>
   );
 }
+

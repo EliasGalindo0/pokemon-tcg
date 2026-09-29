@@ -40,8 +40,9 @@ function rarityOrderSql() {
   return `CASE "rarity" ${branches} ELSE 0 END`;
 }
 
-function whereFrom(query: CardQuery): Prisma.CardWhereInput {
+function whereFrom(userId: string, query: CardQuery): Prisma.CardWhereInput {
   return {
+    userId,
     ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
     ...(query.setId ? { setId: query.setId } : {}),
     ...(query.rarity ? { rarity: query.rarity } : {}),
@@ -53,14 +54,14 @@ function money(value: number) {
   return new Prisma.Decimal(value.toFixed(2));
 }
 
-export async function listCards(query: CardQuery): Promise<CardListResult> {
-  await fillMissingImages();
+export async function listCards(userId: string, query: CardQuery): Promise<CardListResult> {
+  await fillMissingImages(userId);
   const version = await getCacheVersion();
-  const key = `v${version}:cards:v4:${JSON.stringify(query)}`;
+  const key = `v${version}:u:${userId}:cards:v5:${JSON.stringify(query)}`;
   const cached = await cacheGet<CardListResult>(key);
   if (cached) return cached;
 
-  const where = whereFrom(query);
+  const where = whereFrom(userId, query);
   const total = await prisma.card.count({ where });
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(query.page, pageCount);
@@ -92,24 +93,28 @@ export async function listCards(query: CardQuery): Promise<CardListResult> {
   return result;
 }
 
-export async function getCard(id: string) {
-  await fillMissingImages();
+export async function getCard(userId: string, id: string) {
+  await fillMissingImages(userId);
   const version = await getCacheVersion();
-  const key = `v${version}:card:v3:${id}`;
+  const key = `v${version}:u:${userId}:card:v4:${id}`;
   const cached = await cacheGet<CardDTO>(key);
   if (cached) return cached;
 
-  const card = await prisma.card.findUnique({ where: { id }, include: { set: true } });
+  const card = await prisma.card.findFirst({
+    where: { id, userId },
+    include: { set: true },
+  });
   if (!card) return null;
   const [dto] = await withSetLogos([toCardDto(card)]);
   await cacheSet(key, dto, 60);
   return dto;
 }
 
-export async function createCard(input: CardPayload) {
-  const set = await resolveSet(input);
+export async function createCard(userId: string, input: CardPayload) {
+  const set = await resolveSet(userId, input);
   const card = await prisma.card.create({
     data: {
+      userId,
       name: input.name,
       setId: set.id,
       cardNumber: input.cardNumber ?? null,
@@ -124,7 +129,7 @@ export async function createCard(input: CardPayload) {
     include: { set: true },
   });
   await bumpCacheVersion();
-  await syncTradeExcessFromCard({
+  await syncTradeExcessFromCard(userId, {
     name: card.name,
     cardNumber: card.cardNumber,
     quantity: card.quantity,
@@ -135,11 +140,11 @@ export async function createCard(input: CardPayload) {
   return toCardDto(card);
 }
 
-export async function updateCard(id: string, input: CardPayload) {
-  const existing = await prisma.card.findUnique({ where: { id } });
+export async function updateCard(userId: string, id: string, input: CardPayload) {
+  const existing = await prisma.card.findFirst({ where: { id, userId } });
   if (!existing) throw new AppError("Carta não encontrada.", 404);
 
-  const set = await resolveSet(input);
+  const set = await resolveSet(userId, input);
   const card = await prisma.card.update({
     where: { id },
     data: {
@@ -161,7 +166,7 @@ export async function updateCard(id: string, input: CardPayload) {
     await deleteUpload(existing.imageUrl);
   }
   await bumpCacheVersion();
-  await syncTradeExcessFromCard({
+  await syncTradeExcessFromCard(userId, {
     name: card.name,
     cardNumber: card.cardNumber,
     quantity: card.quantity,
@@ -172,19 +177,20 @@ export async function updateCard(id: string, input: CardPayload) {
   return toCardDto(card);
 }
 
-export async function deleteCard(id: string) {
-  const existing = await prisma.card.findUnique({ where: { id } });
+export async function deleteCard(userId: string, id: string) {
+  const existing = await prisma.card.findFirst({ where: { id, userId } });
   if (!existing) throw new AppError("Carta não encontrada.", 404);
   await prisma.card.delete({ where: { id } });
   await deleteUpload(existing.imageUrl);
   await bumpCacheVersion();
 }
 
-export async function createCards(inputs: CardPayload[]) {
+export async function createCards(userId: string, inputs: CardPayload[]) {
   if (inputs.length === 0) return 0;
-  const set = await resolveSet(inputs[0]);
+  const set = await resolveSet(userId, inputs[0]);
   await prisma.card.createMany({
     data: inputs.map((input) => ({
+      userId,
       name: input.name,
       setId: set.id,
       cardNumber: input.cardNumber ?? null,
@@ -201,25 +207,26 @@ export async function createCards(inputs: CardPayload[]) {
   return inputs.length;
 }
 
-export async function deleteCards(ids: string[]) {
+export async function deleteCards(userId: string, ids: string[]) {
   const unique = [...new Set(ids)];
   if (unique.length === 0) return;
-  const existing = await prisma.card.findMany({ where: { id: { in: unique } } });
+  const existing = await prisma.card.findMany({ where: { id: { in: unique }, userId } });
   if (existing.length === 0) return;
-  await prisma.card.deleteMany({ where: { id: { in: existing.map((card) => card.id) } } });
+  await prisma.card.deleteMany({ where: { id: { in: existing.map((card) => card.id) }, userId } });
   const setIds = [...new Set(existing.map((card) => card.setId))];
   for (const setId of setIds) {
-    const remaining = await prisma.card.count({ where: { setId } });
-    if (remaining === 0) await prisma.set.delete({ where: { id: setId } });
+    const remaining = await prisma.card.count({ where: { setId, userId } });
+    if (remaining === 0) await prisma.set.deleteMany({ where: { id: setId, userId } });
   }
   await Promise.all(existing.map((card) => deleteUpload(card.imageUrl)));
   await bumpCacheVersion();
 }
 
-export async function rarestCardIds(limit: number) {
+export async function rarestCardIds(userId: string, limit: number) {
   const rows = await prisma.$queryRaw<{ id: string }[]>`
     SELECT "id"
     FROM "Card"
+    WHERE "userId" = ${userId}
     ORDER BY ${Prisma.raw(rarityOrderSql())} DESC, "createdAt" DESC
     LIMIT ${limit}
   `;

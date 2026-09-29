@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/layout/page-header";
 import { OffersList } from "@/components/trades/offers-list";
-import { isAdmin } from "@/lib/auth";
+import { getSessionUser } from "@/lib/auth";
 import { listTradeOffers } from "@/services/trade-offers";
 
 export const dynamic = "force-dynamic";
@@ -16,7 +16,8 @@ export default async function OfertasPage({
 }: {
   searchParams: Promise<{ status?: string }>;
 }) {
-  if (!(await isAdmin())) redirect("/login?next=/ofertas");
+  const user = await getSessionUser();
+  if (!user) redirect("/login?next=/ofertas");
 
   const { status: statusRaw } = await searchParams;
   const status =
@@ -27,7 +28,7 @@ export default async function OfertasPage({
       ? statusRaw
       : "PENDING";
 
-  const offers = await listTradeOffers(status);
+  const offers = await listTradeOffers(user.id, status);
 
   return (
     <div className="space-y-6">

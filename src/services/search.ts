@@ -3,7 +3,7 @@ import type { GlobalSearchHit, GlobalSearchResult } from "@/types/search";
 
 const LIMIT = 6;
 
-export async function globalSearch(rawQuery: string): Promise<GlobalSearchResult> {
+export async function globalSearch(userId: string, rawQuery: string): Promise<GlobalSearchResult> {
   const q = rawQuery.trim();
   if (q.length < 2) {
     return { q, cards: [], decks: [], trades: [] };
@@ -12,6 +12,7 @@ export async function globalSearch(rawQuery: string): Promise<GlobalSearchResult
   const [cards, decks, deckEntries, tradeEntries, tradeSets] = await Promise.all([
     prisma.card.findMany({
       where: {
+        userId,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { cardNumber: { contains: q, mode: "insensitive" } },
@@ -24,12 +25,13 @@ export async function globalSearch(rawQuery: string): Promise<GlobalSearchResult
       take: LIMIT,
     }),
     prisma.deck.findMany({
-      where: { name: { contains: q, mode: "insensitive" } },
+      where: { userId, name: { contains: q, mode: "insensitive" } },
       orderBy: { name: "asc" },
       take: LIMIT,
     }),
     prisma.deckEntry.findMany({
       where: {
+        deck: { userId },
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { cardNumber: { contains: q, mode: "insensitive" } },
@@ -43,6 +45,7 @@ export async function globalSearch(rawQuery: string): Promise<GlobalSearchResult
     }),
     prisma.tradeEntry.findMany({
       where: {
+        tradeSet: { userId },
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { cardNumber: { contains: q, mode: "insensitive" } },
@@ -56,6 +59,7 @@ export async function globalSearch(rawQuery: string): Promise<GlobalSearchResult
     }),
     prisma.tradeSet.findMany({
       where: {
+        userId,
         OR: [
           { name: { contains: q, mode: "insensitive" } },
           { tcgSetId: { contains: q, mode: "insensitive" } },

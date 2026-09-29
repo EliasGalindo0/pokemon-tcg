@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
-import { isAdmin } from "@/lib/auth";
+import { requireAdminPage } from "@/lib/auth-page";
 import { AppError } from "@/lib/errors";
 import { albumLanguage, getAlbum } from "@/services/album";
 
@@ -19,7 +19,8 @@ export async function generateMetadata({
   const { setId } = await params;
   const { language } = await searchParams;
   try {
-    const album = await getAlbum(setId, albumLanguage(language));
+    const user = await requireAdminPage(`/album/${setId}`);
+    const album = await getAlbum(user.id, setId, albumLanguage(language));
     return { title: album.name };
   } catch {
     return { title: "Álbum" };
@@ -36,11 +37,11 @@ export default async function AlbumSetPage({
   const { setId } = await params;
   const { language: languageRaw } = await searchParams;
   const language = albumLanguage(languageRaw);
-  const admin = await isAdmin();
+  const user = await requireAdminPage(`/album/${setId}`);
 
   let album;
   try {
-    album = await getAlbum(setId, language);
+    album = await getAlbum(user.id, setId, language);
   } catch (error) {
     if (error instanceof AppError && (error.status === 404 || error.status === 400)) notFound();
     throw error;
@@ -60,7 +61,7 @@ export default async function AlbumSetPage({
           <img src={album.logo} alt="" className="h-16 w-28 object-contain" />
         ) : null}
       </div>
-      <AlbumBoard album={album} language={language} readOnly={!admin} />
+      <AlbumBoard album={album} language={language} />
     </div>
   );
 }
