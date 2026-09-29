@@ -1,19 +1,17 @@
 import { prisma } from "@/lib/prisma";
 import { cacheGet, cacheSet, getCacheVersion } from "@/lib/redis";
-import { rarestCardIds, toCardDto } from "@/services/cards";
-import { withSetLogos } from "@/services/set-logos";
-import { countDecks } from "@/services/decks";
 import { fillMissingImages } from "@/services/catalog";
-import type { CardDTO, DashboardData } from "@/types/card";
+import { countDecks, listDecks } from "@/services/decks";
+import type { DashboardData } from "@/types/card";
 
 export async function getDashboard(userId: string): Promise<DashboardData> {
   await fillMissingImages(userId);
   const version = await getCacheVersion();
-  const key = `v${version}:u:${userId}:dashboard:v4`;
+  const key = `v${version}:u:${userId}:dashboard:v5`;
   const cached = await cacheGet<DashboardData>(key);
   if (cached) return cached;
 
-  const [totals, setCount, deckCount, recentRows, rareIds] = await Promise.all([
+  const [totals, setCount, deckCount, decks] = await Promise.all([
     prisma.$queryRaw<{ totalCards: number; estimatedValue: string }[]>`
       SELECT
         COALESCE(SUM("quantity"), 0)::int AS "totalCards",
@@ -23,23 +21,8 @@ export async function getDashboard(userId: string): Promise<DashboardData> {
     `,
     prisma.set.count({ where: { userId } }),
     countDecks(userId),
-    prisma.card.findMany({
-      where: { userId },
-      include: { set: true },
-      orderBy: { createdAt: "desc" },
-      take: 4,
-    }),
-    rarestCardIds(userId, 4),
+    listDecks(userId),
   ]);
-
-  const rareRows =
-    rareIds.length === 0
-      ? []
-      : await prisma.card.findMany({
-          where: { id: { in: rareIds }, userId },
-          include: { set: true },
-        });
-  const rareById = new Map(rareRows.map((card) => [card.id, toCardDto(card)]));
 
   const row = totals[0];
   const result: DashboardData = {
@@ -47,8 +30,7 @@ export async function getDashboard(userId: string): Promise<DashboardData> {
     estimatedValue: String(row?.estimatedValue ?? "0"),
     setCount,
     deckCount,
-    recent: await withSetLogos(recentRows.map(toCardDto)),
-    rarest: await withSetLogos(rareIds.map((id) => rareById.get(id)).filter((card): card is CardDTO => Boolean(card))),
+    decks: decks.slice(0, 4),
   };
 
   await cacheSet(key, result, 30);

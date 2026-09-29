@@ -1,4 +1,5 @@
 import type { ConditionValue, LanguageValue, RarityValue } from "@/lib/labels";
+import type { DeckSummary } from "@/types/deck";
 
 export type SetDTO = {
   id: string;
@@ -45,8 +46,7 @@ export type DashboardData = {
   estimatedValue: string;
   setCount: number;
   deckCount: number;
-  recent: CardDTO[];
-  rarest: CardDTO[];
+  decks: DeckSummary[];
 };
 
 export type CardPayload = {

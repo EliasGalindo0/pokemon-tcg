@@ -2,6 +2,8 @@ import { PrismaClient, type Condition, type Language, type Rarity } from "@prism
 
 const prisma = new PrismaClient();
 
+const BOOTSTRAP_ADMIN_ID = "owner_bootstrap_admin";
+
 const sets = [
   { name: "Base Set", code: "BS" },
   { name: "Fossil", code: "FO" },
@@ -38,8 +40,25 @@ const cards: SeedCard[] = [
   { name: "Pikachu", set: "Paldean Fates", cardNumber: "18/091", rarity: "SHINY_RARE", condition: "MINT", language: "EN", marketValue: "20.00", purchasePrice: "15.00", quantity: 2 },
 ];
 
+async function ensureOwner() {
+  return prisma.user.upsert({
+    where: { id: BOOTSTRAP_ADMIN_ID },
+    update: {},
+    create: {
+      id: BOOTSTRAP_ADMIN_ID,
+      username: "admin",
+      displayName: "Administrador",
+      passwordHash: "bootstrap",
+      role: "ADMIN",
+      active: true,
+      mustChangeCredentials: true,
+    },
+  });
+}
+
 async function main() {
-  const existing = await prisma.card.count();
+  const owner = await ensureOwner();
+  const existing = await prisma.card.count({ where: { userId: owner.id } });
   if (existing > 0) {
     console.log("O banco já tem cartas. Seed ignorado.");
     return;
@@ -47,13 +66,20 @@ async function main() {
 
   const setIds = new Map<string, string>();
   for (const set of sets) {
-    const created = await prisma.set.create({ data: set });
+    const created = await prisma.set.create({
+      data: {
+        name: set.name,
+        code: set.code,
+        userId: owner.id,
+      },
+    });
     setIds.set(set.name, created.id);
   }
 
   const now = Date.now();
   await prisma.card.createMany({
     data: cards.map((card, index) => ({
+      userId: owner.id,
       name: card.name,
       setId: setIds.get(card.set)!,
       cardNumber: card.cardNumber,
