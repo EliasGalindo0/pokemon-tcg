@@ -40,9 +40,14 @@ function rarityOrderSql() {
   return `CASE "rarity" ${branches} ELSE 0 END`;
 }
 
-function whereFrom(userId: string, query: CardQuery): Prisma.CardWhereInput {
+function whereFrom(
+  userId: string,
+  query: CardQuery,
+  options?: { publicOnly?: boolean },
+): Prisma.CardWhereInput {
   return {
     userId,
+    ...(options?.publicOnly ? { set: { isPublic: true } } : {}),
     ...(query.q ? { name: { contains: query.q, mode: "insensitive" } } : {}),
     ...(query.setId ? { setId: query.setId } : {}),
     ...(query.rarity ? { rarity: query.rarity } : {}),
@@ -54,14 +59,28 @@ function money(value: number) {
   return new Prisma.Decimal(value.toFixed(2));
 }
 
-export async function listCards(userId: string, query: CardQuery): Promise<CardListResult> {
+export async function listCards(
+  userId: string,
+  query: CardQuery,
+  options?: { publicOnly?: boolean },
+): Promise<CardListResult> {
   await fillMissingImages(userId);
   const version = await getCacheVersion();
-  const key = `v${version}:u:${userId}:cards:v5:${JSON.stringify(query)}`;
+  const key = `v${version}:u:${userId}:cards:v6:${options?.publicOnly ? "pub" : "all"}:${JSON.stringify(query)}`;
   const cached = await cacheGet<CardListResult>(key);
   if (cached) return cached;
 
-  const where = whereFrom(userId, query);
+  if (options?.publicOnly && query.setId) {
+    const allowed = await prisma.set.findFirst({
+      where: { id: query.setId, userId, isPublic: true },
+      select: { id: true },
+    });
+    if (!allowed) {
+      return { items: [], page: 1, pageSize: PAGE_SIZE, total: 0, pageCount: 1 };
+    }
+  }
+
+  const where = whereFrom(userId, query, options);
   const total = await prisma.card.count({ where });
   const pageCount = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(query.page, pageCount);

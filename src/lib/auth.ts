@@ -16,7 +16,6 @@ export type SessionUser = {
   displayName: string;
   role: "ADMIN" | "MEMBER";
   mustChangeCredentials: boolean;
-  collectionPublic: boolean;
 };
 
 function authSecret() {
@@ -127,7 +126,6 @@ export async function getSessionUser(): Promise<SessionUser | null> {
     displayName: user.displayName,
     role: user.role,
     mustChangeCredentials: user.mustChangeCredentials,
-    collectionPublic: user.collectionPublic,
   };
 }
 

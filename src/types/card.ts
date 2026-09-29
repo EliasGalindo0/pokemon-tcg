@@ -6,6 +6,8 @@ export type SetDTO = {
   name: string;
   code: string | null;
   logoUrl?: string | null;
+  isPublic?: boolean;
+  cardCount?: number;
 };
 
 export type CardDTO = {

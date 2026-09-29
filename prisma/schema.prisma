@@ -79,7 +79,6 @@ model User {
   role                   UserRole   @default(MEMBER)
   active                 Boolean    @default(true)
   mustChangeCredentials  Boolean    @default(false)
-  collectionPublic       Boolean    @default(false)
   createdAt              DateTime   @default(now())
   updatedAt              DateTime   @updatedAt
   sets                   Set[]
@@ -90,7 +89,6 @@ model User {
 
   @@index([role])
   @@index([active])
-  @@index([collectionPublic, active])
 }
 
 model Set {
@@ -99,12 +97,14 @@ model Set {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   code      String?
+  isPublic  Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   cards     Card[]
 
   @@unique([userId, name])
   @@index([userId])
+  @@index([isPublic, userId])
 }
 
 model Card {

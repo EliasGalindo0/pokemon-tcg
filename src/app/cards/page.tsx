@@ -34,6 +34,7 @@ export default async function GalleryPage({
   const raw = await searchParams;
   const query = parseCardQuery(raw);
   const [sets, result] = await Promise.all([listSets(user.id), listCards(user.id, query)]);
+  const publicSets = sets.filter((set) => set.isPublic);
   const hasFilters = Boolean(
     query.q || query.setId || query.rarity || query.condition || (query.sort && query.sort !== "recent"),
   );
@@ -55,8 +56,8 @@ export default async function GalleryPage({
         description={
           result.total === 0
             ? "Nenhum item"
-            : `Mostrando ${start}–${end} de ${result.total} itens${
-                user.collectionPublic ? " · coleção pública" : " · coleção privada"
+            : `Mostrando ${start}–${end} de ${result.total} itens · ${publicSets.length} ${
+                publicSets.length === 1 ? "coleção pública" : "coleções públicas"
               }`
         }
       >
@@ -73,21 +74,26 @@ export default async function GalleryPage({
       </PageHeader>
 
       <p className="text-sm text-muted">
-        {user.collectionPublic ? (
+        {publicSets.length > 0 ? (
           <>
-            Visitantes veem esta coleção em{" "}
+            Visitantes veem {publicSets.length === 1 ? "a coleção" : "as coleções"}{" "}
+            {publicSets.map((set) => set.name).join(", ")} em{" "}
             <Link href={`/galeria/${user.username}`} className="text-navy hover:underline">
               Galerias
+            </Link>
+            . Ajuste em{" "}
+            <Link href="/conta" className="text-navy hover:underline">
+              Conta
             </Link>
             .
           </>
         ) : (
           <>
-            Sua coleção está privada. Em{" "}
+            Todas as coleções estão privadas. Em{" "}
             <Link href="/conta" className="text-navy hover:underline">
               Conta
             </Link>{" "}
-            você pode torná-la pública.
+            você pode liberar sets individuais.
           </>
         )}
       </p>

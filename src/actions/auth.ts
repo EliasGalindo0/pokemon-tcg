@@ -15,11 +15,11 @@ import {
   inviteUser,
   listUsers,
   resetUserPassword,
-  setCollectionPublic,
   setUserActive,
   updateOwnCredentials,
   type InviteCredentials,
 } from "@/services/users";
+import { setSetPublic } from "@/services/sets";
 
 export type LoginState = {
   message?: string;
@@ -168,18 +168,17 @@ export async function listUsersAction() {
   return listUsers();
 }
 
-export async function setCollectionPublicAction(collectionPublic: boolean): Promise<UserActionState> {
+export async function setSetPublicAction(setId: string, isPublic: boolean): Promise<UserActionState> {
   try {
     const user = await requireUser();
-    await setCollectionPublic(user.id, collectionPublic);
+    await setSetPublic(user.id, setId, isPublic);
     revalidatePath("/", "layout");
     revalidatePath("/galeria");
+    revalidatePath("/cards");
     revalidatePath("/conta");
     return {
       ok: true,
-      message: collectionPublic
-        ? "Sua coleção ficou pública. Visitantes podem vê-la em Galerias."
-        : "Sua coleção ficou privada.",
+      message: isPublic ? "Coleção pública — aparece em Galerias." : "Coleção privada.",
     };
   } catch (error) {
     return {

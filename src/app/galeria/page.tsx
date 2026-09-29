@@ -19,7 +19,7 @@ export default async function PublicGalleriesPage() {
       <PageHeader
         kicker="Comunidade"
         title="Galerias públicas"
-        description="Escolha uma coleção liberada pelo dono. Coleções privadas não aparecem aqui."
+        description="Escolha um colecionador. Só aparecem coleções (sets) que o dono marcou como públicas."
       >
         {user ? (
           <ButtonLink href="/cards" variant="secondary">
@@ -36,7 +36,7 @@ export default async function PublicGalleriesPage() {
         <section className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-16 text-center">
           <h2 className="font-display text-3xl">Nenhuma coleção pública</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Quando alguém marcar a coleção como pública em Conta, ela aparece nesta lista.
+            Quando alguém marcar um set como público em Conta, ele aparece nesta lista.
           </p>
         </section>
       ) : (
