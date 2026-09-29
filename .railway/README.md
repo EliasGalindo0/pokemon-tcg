@@ -21,3 +21,11 @@ railway domain --service pokemon-tcg
 `railway link` liga esta pasta a um projeto. Se ainda não existir, o CLI pede para criar um. `railway config plan` só mostra o que seria criado. `railway config apply` cria o Postgres, o Redis e o volume e configura o serviço `pokemon-tcg`. `railway up --service pokemon-tcg` envia o código. `railway domain --service pokemon-tcg` gera o endereço público `*.up.railway.app`.
 
 `DATABASE_URL` e `REDIS_URL` vêm do Postgres e do Redis do próprio projeto. Não copie as URLs do `.env` local para o Railway.
+
+No serviço da app, configure também:
+
+- `ADMIN_PASSWORD` — senha inicial do bootstrap `admin`
+- `AUTH_SECRET` — segredo do cookie de sessão
+- `NEXT_SERVER_ACTIONS_ENCRYPTION_KEY` — `openssl rand -base64 32` (mesma chave no build e no runtime). Evita o erro `Failed to find Server Action` depois de cada deploy.
+
+Se esse erro aparecer logo após um deploy: hard refresh (Ctrl+Shift+R) na página de Usuários e tente de novo — o formulário aberto era da versão antiga.

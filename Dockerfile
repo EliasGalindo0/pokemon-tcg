@@ -9,6 +9,9 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV DATABASE_URL="postgresql://pokedex:pokedex@postgres:5432/pokedex?schema=public"
+# Stable across rebuilds when Railway injects NEXT_SERVER_ACTIONS_ENCRYPTION_KEY as a build arg/env.
+ARG NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
+ENV NEXT_SERVER_ACTIONS_ENCRYPTION_KEY=$NEXT_SERVER_ACTIONS_ENCRYPTION_KEY
 RUN npm run build && node scripts/bundle-prisma-cli.mjs
 
 FROM node:22-alpine AS runner
