@@ -189,11 +189,11 @@ export function TradeBoardView({
                   ) : null}
 
                   {owned && readOnly && allowOffer ? (
-                    <span className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
+                    <span className="pointer-events-none absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
                       Trocar{slot.quantity > 1 ? ` · ${slot.quantity}` : ""}
                     </span>
                   ) : owned && readOnly && slot.quantity > 1 ? (
-                    <span className="absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
+                    <span className="pointer-events-none absolute bottom-1.5 left-1/2 z-10 -translate-x-1/2 rounded-full bg-navy px-2 py-1 text-[10px] font-semibold text-paper">
                       {slot.quantity}
                     </span>
                   ) : null}
