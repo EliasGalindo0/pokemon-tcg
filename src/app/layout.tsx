@@ -1,7 +1,8 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Fraunces, Outfit } from "next/font/google";
 import { Pokeball } from "@/components/brand/pokeball";
 import { SiteHeader } from "@/components/layout/site-header";
+import { PwaRegister } from "@/components/pwa/pwa-register";
 import { enforceCredentialChange } from "@/lib/enforce-credentials";
 import "./globals.css";
 
@@ -21,6 +22,29 @@ export const metadata: Metadata = {
     template: "%s · Álbum",
   },
   description: "Coleção, álbum e decks de Pokémon TCG.",
+  applicationName: "Álbum",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Álbum",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+  icons: {
+    icon: [
+      { url: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
+      { url: "/icons/icon-512.png", sizes: "512x512", type: "image/png" },
+    ],
+    apple: [{ url: "/icons/apple-touch-icon.png", sizes: "180x180", type: "image/png" }],
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#142033",
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -40,8 +64,8 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Pokeball className="h-5 w-5" />
           <span>Álbum · coleção e decks de Pokémon TCG</span>
         </footer>
+        <PwaRegister />
       </body>
     </html>
   );
 }
-
