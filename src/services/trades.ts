@@ -2,7 +2,15 @@ import { AppError } from "@/lib/errors";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { catalogImageUrl, catalogLanguage, catalogLogoUrl, fetchTcg } from "@/services/catalog";
-import type { TradeBoard, TradeSetCandidate, TradeSetSummary, TradeSlot } from "@/types/trade";
+import type {
+  PublicTrader,
+  TradeBoard,
+  TradeOwner,
+  TradeSetCandidate,
+  TradeSetSummary,
+  TradeSlot,
+  TradeStockSet,
+} from "@/types/trade";
 
 const SET_ID = /^[a-z0-9][a-z0-9.-]{0,40}$/i;
 const BASE_URL = process.env.TCGDEX_API_URL ?? "https://api.tcgdex.net/v2";
@@ -80,6 +88,118 @@ function slotFromBrief(card: TcgSetCard, official: number): TradeSlot | null {
     number: printedNumber(localId, official),
     imageUrl: catalogImageUrl(card.image, "low"),
     quantity: 0,
+  };
+}
+
+function toOwner(user: { id: string; username: string; displayName: string }): TradeOwner {
+  return { id: user.id, username: user.username, displayName: user.displayName };
+}
+
+export async function listPublicTraders(excludeUserId?: string): Promise<PublicTrader[]> {
+  const owners = await prisma.user.findMany({
+    where: {
+      active: true,
+      ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
+      tradeSets: { some: { entries: { some: { quantity: { gt: 0 } } } } },
+    },
+    select: {
+      username: true,
+      displayName: true,
+      tradeSets: {
+        where: { entries: { some: { quantity: { gt: 0 } } } },
+        select: {
+          entries: {
+            where: { quantity: { gt: 0 } },
+            select: { quantity: true, imageUrl: true },
+            orderBy: { updatedAt: "desc" },
+          },
+        },
+      },
+    },
+    orderBy: { displayName: "asc" },
+  });
+
+  return owners
+    .map((owner) => {
+      const unitCount = owner.tradeSets.reduce(
+        (sum, set) => sum + set.entries.reduce((inner, entry) => inner + entry.quantity, 0),
+        0,
+      );
+      const sampleImages = owner.tradeSets
+        .flatMap((set) => set.entries.map((entry) => entry.imageUrl).filter((url): url is string => Boolean(url)))
+        .slice(0, 4);
+      return {
+        username: owner.username,
+        displayName: owner.displayName,
+        setCount: owner.tradeSets.length,
+        unitCount,
+        sampleImages,
+      };
+    })
+    .filter((owner) => owner.unitCount > 0);
+}
+
+export async function getTradeOwnerByUsername(username: string): Promise<TradeOwner | null> {
+  const user = await prisma.user.findUnique({
+    where: { username: username.trim().toLowerCase() },
+    select: { id: true, username: true, displayName: true, active: true },
+  });
+  if (!user || !user.active) return null;
+  return toOwner(user);
+}
+
+export async function findTradeSetOwner(tradeSetId: string): Promise<TradeOwner | null> {
+  const row = await prisma.tradeSet.findUnique({
+    where: { id: tradeSetId },
+    select: { user: { select: { id: true, username: true, displayName: true, active: true } } },
+  });
+  if (!row?.user.active) return null;
+  return toOwner(row.user);
+}
+
+export async function listTradeStock(userId: string): Promise<TradeStockSet[]> {
+  const rows = await prisma.tradeSet.findMany({
+    where: { userId, entries: { some: { quantity: { gt: 0 } } } },
+    include: {
+      user: { select: { id: true, username: true, displayName: true } },
+      entries: { where: { quantity: { gt: 0 } }, orderBy: { name: "asc" } },
+    },
+    orderBy: { name: "asc" },
+  });
+
+  return rows.map((row) => ({
+    id: row.id,
+    tcgSetId: row.tcgSetId,
+    name: row.name,
+    logoUrl: row.logoUrl,
+    language: row.language,
+    official: row.official,
+    unitCount: row.entries.reduce((sum, entry) => sum + entry.quantity, 0),
+    owner: toOwner(row.user),
+    entries: row.entries.map((entry) => ({
+      tcgId: entry.tcgId,
+      name: entry.name,
+      localId: entry.localId,
+      number: entry.cardNumber ?? entry.localId,
+      imageUrl: entry.imageUrl,
+      quantity: entry.quantity,
+    })),
+  }));
+}
+
+export function tradeBoardFromStock(set: TradeStockSet): TradeBoard {
+  return {
+    id: set.id,
+    tcgSetId: set.tcgSetId,
+    name: set.name,
+    logoUrl: set.logoUrl,
+    language: set.language,
+    official: set.official,
+    total: set.entries.length,
+    ownedSlots: set.entries.length,
+    unitCount: set.unitCount,
+    slots: set.entries,
+    owner: set.owner,
   };
 }
 
@@ -169,7 +289,10 @@ export async function createTradeSet(userId: string, tcgSetId: string, language:
 export async function getTradeBoard(userId: string, id: string): Promise<TradeBoard> {
   const tradeSet = await prisma.tradeSet.findFirst({
     where: { id, userId },
-    include: { entries: true },
+    include: {
+      entries: true,
+      user: { select: { id: true, username: true, displayName: true } },
+    },
   });
   if (!tradeSet) throw new AppError("Coleção de troca não encontrada.", 404);
 
@@ -195,6 +318,7 @@ export async function getTradeBoard(userId: string, id: string): Promise<TradeBo
     ownedSlots: slots.filter((slot) => slot.quantity > 0).length,
     unitCount: slots.reduce((sum, slot) => sum + slot.quantity, 0),
     slots,
+    owner: toOwner(tradeSet.user),
   };
 }
 

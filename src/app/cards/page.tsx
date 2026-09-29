@@ -13,7 +13,7 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 export const metadata: Metadata = {
-  title: "Minha galeria",
+  title: "Minha coleção",
 };
 
 export default async function GalleryPage({
@@ -44,7 +44,7 @@ export default async function GalleryPage({
     <div className="space-y-8">
       <PageHeader
         kicker="Coleção"
-        title="Minha galeria"
+        title="Minha coleção"
         description="Suas coleções em abas: o que você tem, o que falta, quantidades e valores."
       >
         <div className="flex flex-wrap gap-2">
@@ -67,7 +67,7 @@ export default async function GalleryPage({
           <>
             {publicCount} {publicCount === 1 ? "coleção pública" : "coleções públicas"} em{" "}
             <Link href="/galeria" className="text-navy hover:underline">
-              Galerias públicas
+              Coleções públicas
             </Link>
             . Ajuste em{" "}
             <Link href="/conta" className="text-navy hover:underline">
@@ -83,7 +83,7 @@ export default async function GalleryPage({
             </Link>{" "}
             você libera sets individuais para as{" "}
             <Link href="/galeria" className="text-navy hover:underline">
-              Galerias públicas
+              Coleções públicas
             </Link>
             .
           </>

@@ -13,6 +13,8 @@ export type PublicCollector = {
   displayName: string;
   cardCount: number;
   setCount: number;
+  tradeUnitCount: number;
+  tradeSetCount: number;
 };
 
 export type PublicOwner = {
@@ -30,7 +32,10 @@ export async function listPublicCollectors(excludeUserId?: string): Promise<Publ
     where: {
       active: true,
       ...(excludeUserId ? { id: { not: excludeUserId } } : {}),
-      sets: { some: { isPublic: true, cards: { some: {} } } },
+      OR: [
+        { sets: { some: { isPublic: true, cards: { some: {} } } } },
+        { tradeSets: { some: { entries: { some: { quantity: { gt: 0 } } } } } },
+      ],
     },
     select: {
       username: true,
@@ -38,6 +43,10 @@ export async function listPublicCollectors(excludeUserId?: string): Promise<Publ
       sets: {
         where: { isPublic: true },
         select: { id: true, _count: { select: { cards: true } } },
+      },
+      tradeSets: {
+        where: { entries: { some: { quantity: { gt: 0 } } } },
+        select: { entries: { where: { quantity: { gt: 0 } }, select: { quantity: true } } },
       },
     },
     orderBy: { displayName: "asc" },
@@ -47,14 +56,20 @@ export async function listPublicCollectors(excludeUserId?: string): Promise<Publ
     .map((owner) => {
       const publicSets = owner.sets.filter((set) => set._count.cards > 0);
       const cardCount = publicSets.reduce((sum, set) => sum + set._count.cards, 0);
+      const tradeUnitCount = owner.tradeSets.reduce(
+        (sum, set) => sum + set.entries.reduce((inner, entry) => inner + entry.quantity, 0),
+        0,
+      );
       return {
         username: owner.username,
         displayName: owner.displayName,
         cardCount,
         setCount: publicSets.length,
+        tradeUnitCount,
+        tradeSetCount: owner.tradeSets.length,
       };
     })
-    .filter((owner) => owner.cardCount > 0);
+    .filter((owner) => owner.cardCount > 0 || owner.tradeUnitCount > 0);
 }
 
 export async function getPublicOwner(username: string): Promise<PublicOwner> {
@@ -66,9 +81,14 @@ export async function getPublicOwner(username: string): Promise<PublicOwner> {
       displayName: true,
       active: true,
       sets: { where: { isPublic: true }, select: { id: true }, take: 1 },
+      tradeSets: {
+        where: { entries: { some: { quantity: { gt: 0 } } } },
+        select: { id: true },
+        take: 1,
+      },
     },
   });
-  if (!user || !user.active || user.sets.length === 0) {
+  if (!user || !user.active || (user.sets.length === 0 && user.tradeSets.length === 0)) {
     throw new AppError("Coleção não encontrada ou privada.", 404);
   }
   return { id: user.id, username: user.username, displayName: user.displayName };

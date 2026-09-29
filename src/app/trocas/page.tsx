@@ -1,14 +1,12 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
+import { CollectorList } from "@/components/collectors/collector-list";
 import { PageHeader } from "@/components/layout/page-header";
-import { TradeSetSearch } from "@/components/trades/trade-set-search";
-import { TradeTabs } from "@/components/trades/trade-tabs";
-import { getSessionUser, isAdmin } from "@/lib/auth";
-import { AppError } from "@/lib/errors";
-import { prisma } from "@/lib/prisma";
-import { getTradeBoard, listTradeSets } from "@/services/trades";
+import { ButtonLink } from "@/components/ui/button";
+import { getSessionUser } from "@/lib/auth";
+import { findTradeSetOwner, listPublicTraders } from "@/services/trades";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 120;
 
 export const metadata: Metadata = {
   title: "Trocas",
@@ -20,48 +18,47 @@ export default async function TrocasPage({
   searchParams: Promise<{ tab?: string }>;
 }) {
   const user = await getSessionUser();
-  const admin = await isAdmin();
   const { tab } = await searchParams;
-  const sets = user ? await listTradeSets(user.id) : [];
-  const activeId = tab && sets.some((set) => set.id === tab) ? tab : (sets[0]?.id ?? null);
-
-  let board = null;
-  if (activeId) {
-    try {
-      const owner = await prisma.tradeSet.findUnique({
-        where: { id: activeId },
-        select: { userId: true },
-      });
-      if (owner) board = await getTradeBoard(owner.userId, activeId);
-    } catch (error) {
-      if (!(error instanceof AppError && error.status === 404)) throw error;
-    }
+  if (tab) {
+    const owner = await findTradeSetOwner(tab);
+    if (owner) redirect(`/trocas/${owner.username}?tab=${encodeURIComponent(tab)}`);
   }
+
+  const traders = await listPublicTraders(user?.id);
 
   return (
     <div className="space-y-8">
       <PageHeader
-        kicker="Repetidas"
+        kicker="Comunidade"
         title="Trocas"
-        description={
-          admin
-            ? "Cadastre uma coleção pelo número da carta e marque quantas cópias você tem para trocar. Cada coleção fica em uma aba."
-            : "Veja as cartas disponíveis e proponha uma troca oferecendo outra carta do catálogo."
-        }
-      />
-
-      {admin ? (
-        <section className="rounded-3xl border border-line bg-card p-5">
-          <h2 className="font-display text-2xl">Cadastrar coleção</h2>
-          <div className="mt-4">
-            <TradeSetSearch />
-          </div>
-        </section>
-      ) : null}
+        description="Primeiro escolha o colecionador. Depois entre na coleção de troca dele para ver as cartas e solicitar só para aquele dono."
+      >
+        {user ? (
+          <ButtonLink href={`/trocas/${user.username}`} variant="secondary">
+            Minhas cartas para troca
+          </ButtonLink>
+        ) : (
+          <ButtonLink href="/login?next=/trocas" variant="secondary">
+            Entrar
+          </ButtonLink>
+        )}
+      </PageHeader>
 
       <section className="space-y-4">
-        <h2 className="font-display text-2xl">Coleções</h2>
-        <TradeTabs sets={sets} activeId={activeId} board={board} readOnly={!admin} />
+        <h2 className="font-display text-2xl">Colecionadores com cartas para troca</h2>
+        <CollectorList
+          items={traders.map((trader) => ({
+            username: trader.username,
+            displayName: trader.displayName,
+            href: `/trocas/${trader.username}`,
+            images: trader.sampleImages,
+            meta: `${trader.unitCount} ${trader.unitCount === 1 ? "carta" : "cartas"} · ${trader.setCount} ${
+              trader.setCount === 1 ? "coleção" : "coleções"
+            }`,
+          }))}
+          emptyTitle="Nenhuma carta para troca"
+          emptyDescription="Quando alguém marcar repetidas para troca, o colecionador aparece nesta lista."
+        />
       </section>
     </div>
   );

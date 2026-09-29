@@ -58,5 +58,5 @@ export async function deleteTradeSetAction(id: string) {
   const user = await requireUser();
   await deleteTradeSet(user.id, id);
   invalidate();
-  redirect("/trocas");
+  redirect(`/trocas/${user.username}`);
 }

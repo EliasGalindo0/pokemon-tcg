@@ -178,7 +178,7 @@ export async function setSetPublicAction(setId: string, isPublic: boolean): Prom
     revalidatePath("/conta");
     return {
       ok: true,
-      message: isPublic ? "Coleção pública — aparece em Galerias." : "Coleção privada.",
+      message: isPublic ? "Coleção pública — aparece em Coleções." : "Coleção privada.",
     };
   } catch (error) {
     return {

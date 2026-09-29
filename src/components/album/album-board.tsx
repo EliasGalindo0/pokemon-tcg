@@ -20,7 +20,7 @@ export function AlbumBoard({
   album: AlbumView;
   language: string;
   readOnly?: boolean;
-  /** Quantidade, valores e link de edição — para Minha galeria. */
+  /** Quantidade, valores e link de edição — para Minha coleção. */
   manage?: boolean;
 }) {
   const [filter, setFilter] = useState<Filter>("all");

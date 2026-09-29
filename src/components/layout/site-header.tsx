@@ -23,8 +23,8 @@ export async function SiteHeader() {
       items.push({ href: "/album", label: "Álbum" });
     }
     items.push({ href: "/trocas", label: "Trocas" });
-    items.push({ href: "/galeria", label: "Galerias" });
-    if (user) items.push({ href: "/cards", label: "Minha galeria" });
+    items.push({ href: "/galeria", label: "Coleções" });
+    if (user) items.push({ href: "/cards", label: "Minha coleção" });
     if (admin) {
       items.push({ href: "/decks", label: "Decks" });
       items.push({ href: "/admin/usuarios", label: "Usuários" });
