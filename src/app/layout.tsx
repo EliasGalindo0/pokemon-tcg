@@ -33,10 +33,10 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <Pokeball className="h-[28rem] w-[28rem]" />
         </div>
         <SiteHeader />
-        <main id="conteudo" className="mx-auto w-full max-w-6xl px-4 py-8">
+        <main id="conteudo" className="mx-auto w-full max-w-6xl overflow-x-hidden px-4 py-8">
           {children}
         </main>
-        <footer className="mx-auto flex w-full max-w-6xl items-center gap-3 px-4 pb-8 text-sm text-muted">
+        <footer className="mx-auto flex w-full max-w-6xl flex-wrap items-center gap-3 px-4 pb-8 text-sm text-muted">
           <Pokeball className="h-5 w-5" />
           <span>Álbum · coleção e decks de Pokémon TCG</span>
         </footer>

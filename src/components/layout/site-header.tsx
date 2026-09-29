@@ -2,7 +2,7 @@ import Link from "next/link";
 import { logoutAction } from "@/actions/auth";
 import { Pokeball } from "@/components/brand/pokeball";
 import { GlobalSearch } from "@/components/layout/global-search";
-import { NavLink } from "@/components/layout/nav-link";
+import { SiteNav, type SiteNavItem } from "@/components/layout/site-nav";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { getSessionUser, isAdmin } from "@/lib/auth";
 import { countPendingTradeOffers } from "@/services/trade-offers";
@@ -14,6 +14,30 @@ export async function SiteHeader() {
   const pendingOffers = user && !mustChange ? await countPendingTradeOffers(user.id) : 0;
   const homeHref = mustChange ? "/conta" : admin ? "/" : "/trocas";
 
+  const items: SiteNavItem[] = [];
+  if (mustChange) {
+    items.push({ href: "/conta", label: "Conta" });
+  } else {
+    if (admin) {
+      items.push({ href: "/", label: "Painel" });
+      items.push({ href: "/album", label: "Álbum" });
+    }
+    items.push({ href: "/trocas", label: "Trocas" });
+    items.push({ href: "/galeria", label: "Galerias" });
+    if (user) items.push({ href: "/cards", label: "Minha galeria" });
+    if (admin) {
+      items.push({ href: "/decks", label: "Decks" });
+      items.push({ href: "/admin/usuarios", label: "Usuários" });
+    }
+    if (user) {
+      items.push({
+        href: "/ofertas",
+        label: pendingOffers > 0 ? `Ofertas (${pendingOffers})` : "Ofertas",
+      });
+      items.push({ href: "/conta", label: "Conta" });
+    }
+  }
+
   return (
     <header className="sticky top-0 z-20 border-b border-white/10 bg-navy text-paper shadow-[0_12px_30px_-24px_rgba(20,32,51,0.9)]">
       <a
@@ -22,72 +46,37 @@ export async function SiteHeader() {
       >
         Pular para o conteúdo
       </a>
-      <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-x-6 gap-y-3 px-4 py-3">
-        <Link href={homeHref} className="mr-auto flex items-center gap-3">
-          <span className="grid h-10 w-10 place-items-center rounded-full bg-paper shadow-sm">
+      <div className="relative mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-3 px-4 py-3">
+        <Link href={homeHref} className="flex min-w-0 shrink items-center gap-2 sm:gap-3">
+          <span className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-paper shadow-sm">
             <Pokeball className="h-8 w-8" />
           </span>
-          <span>
+          <span className="min-w-0">
             <span className="block font-display text-xl leading-none">Álbum</span>
-            <span className="text-xs text-white/65">Pokémon TCG</span>
+            <span className="hidden text-xs text-white/65 sm:block">Pokémon TCG</span>
           </span>
         </Link>
-        {user && !mustChange ? <GlobalSearch /> : null}
-        <nav className="flex items-center gap-1" aria-label="Principal">
-          {mustChange ? (
-            <NavLink href="/conta" tone="dark">
-              Conta
-            </NavLink>
-          ) : (
-            <>
-              {admin ? (
-                <NavLink href="/" tone="dark">
-                  Painel
-                </NavLink>
-              ) : null}
-              {admin ? (
-                <NavLink href="/album" tone="dark">
-                  Álbum
-                </NavLink>
-              ) : null}
-              <NavLink href="/trocas" tone="dark">
-                Trocas
-              </NavLink>
-              <NavLink href="/galeria" tone="dark">
-                Galerias públicas
-              </NavLink>
-              {user ? (
-                <NavLink href="/cards" tone="dark">
-                  Minha galeria
-                </NavLink>
-              ) : null}
-              {admin ? (
-                <NavLink href="/decks" tone="dark">
-                  Decks
-                </NavLink>
-              ) : null}
-              {admin ? (
-                <NavLink href="/admin/usuarios" tone="dark">
-                  Usuários
-                </NavLink>
-              ) : null}
-              {user ? (
-                <NavLink href="/ofertas" tone="dark">
-                  Ofertas{pendingOffers > 0 ? ` (${pendingOffers})` : ""}
-                </NavLink>
-              ) : null}
-              {user ? (
-                <NavLink href="/conta" tone="dark">
-                  Conta
-                </NavLink>
-              ) : null}
-            </>
-          )}
-        </nav>
-        <div className="flex items-center gap-2">
+
+        {user && !mustChange ? (
+          <div className="order-last w-full min-w-0 basis-full sm:order-0 sm:w-auto sm:max-w-xs sm:flex-1 sm:basis-auto lg:mx-2">
+            <GlobalSearch />
+          </div>
+        ) : null}
+
+        <div className="ml-auto flex items-center gap-1 sm:gap-2">
+          <SiteNav
+            items={items}
+            mobileExtras={
+              admin && !mustChange ? [{ href: "/cards/new", label: "Nova carta" }] : []
+            }
+          />
           {user ? (
             <>
-              {admin && !mustChange ? <ButtonLink href="/cards/new">Nova carta</ButtonLink> : null}
+              {admin && !mustChange ? (
+                <ButtonLink href="/cards/new" className="hidden sm:inline-flex">
+                  Nova carta
+                </ButtonLink>
+              ) : null}
               <form action={logoutAction}>
                 <Button type="submit" variant="ghost" className="text-paper hover:bg-white/10">
                   Sair
@@ -95,7 +84,11 @@ export async function SiteHeader() {
               </form>
             </>
           ) : (
-            <ButtonLink href="/login" variant="secondary" className="border-white/20 bg-transparent text-paper hover:bg-white/10">
+            <ButtonLink
+              href="/login"
+              variant="secondary"
+              className="border-white/20 bg-transparent text-paper hover:bg-white/10"
+            >
               Entrar
             </ButtonLink>
           )}

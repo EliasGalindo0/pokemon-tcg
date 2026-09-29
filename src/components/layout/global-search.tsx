@@ -98,7 +98,7 @@ export function GlobalSearch() {
   const showPanel = open && query.trim().length >= 2;
 
   return (
-    <div ref={rootRef} className="relative w-full max-w-xs">
+    <div ref={rootRef} className="relative w-full min-w-0">
       <label className="sr-only" htmlFor={listId}>
         Busca global
       </label>
@@ -111,11 +111,11 @@ export function GlobalSearch() {
           if (query.trim().length >= 2) setOpen(true);
         }}
         placeholder="Buscar coleção, deck, troca…"
-        className="w-full rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-paper outline-none placeholder:text-white/45 focus:border-white/35 focus:bg-white/15"
+        className="w-full min-w-0 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-sm text-paper outline-none placeholder:text-white/45 focus:border-white/35 focus:bg-white/15"
         autoComplete="off"
       />
       {showPanel ? (
-        <div className="absolute right-0 z-40 mt-2 w-[min(100vw-2rem,22rem)] rounded-2xl border border-white/10 bg-navy p-3 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.8)]">
+        <div className="absolute left-0 right-0 z-40 mt-2 w-full max-w-[min(100vw-2rem,22rem)] rounded-2xl border border-white/10 bg-navy p-3 shadow-[0_20px_50px_-24px_rgba(0,0,0,0.8)] sm:left-auto sm:right-0">
           {status === "loading" ? <p className="px-2 text-sm text-white/60">Buscando…</p> : null}
           {status === "error" ? <p className="px-2 text-sm text-ember">Não foi possível buscar.</p> : null}
           {status === "empty" ? <p className="px-2 text-sm text-white/60">Nada encontrado.</p> : null}
