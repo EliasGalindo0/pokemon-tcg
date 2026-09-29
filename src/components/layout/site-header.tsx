@@ -20,7 +20,6 @@ export async function SiteHeader() {
   } else {
     if (admin) {
       items.push({ href: "/", label: "Painel" });
-      items.push({ href: "/album", label: "Álbum" });
     }
     items.push({ href: "/trocas", label: "Trocas" });
     items.push({ href: "/galeria", label: "Galerias" });
