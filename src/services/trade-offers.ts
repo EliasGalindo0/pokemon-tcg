@@ -103,15 +103,32 @@ export async function listTradeOffers(
   return rows.map(toDto);
 }
 
-export async function createTradeOffer(input: TradeOfferPayload) {
+export async function createTradeOffer(
+  input: TradeOfferPayload,
+  fromUser?: { id: string; displayName: string } | null,
+) {
   const language = tradeLanguage(input.offeredLanguage);
-  const visitorName = input.visitorName?.trim() || null;
+  const ownerUsername = input.ownerUsername.trim().toLowerCase();
+  if (!ownerUsername) throw new AppError("Informe o dono da carta.", 400);
+
+  const visitorName = input.visitorName?.trim() || fromUser?.displayName || null;
   const visitorNote = input.visitorNote?.trim() || null;
   if (visitorName && visitorName.length > 80) throw new AppError("Nome muito longo.", 400);
   if (visitorNote && visitorNote.length > 280) throw new AppError("Mensagem muito longa.", 400);
 
-  const tradeSet = await prisma.tradeSet.findUnique({ where: { id: input.wantedTradeSetId } });
-  if (!tradeSet) throw new AppError("Coleção de troca não encontrada.", 404);
+  const tradeSet = await prisma.tradeSet.findUnique({
+    where: { id: input.wantedTradeSetId },
+    include: { user: { select: { id: true, username: true, active: true } } },
+  });
+  if (!tradeSet || !tradeSet.user.active) {
+    throw new AppError("Coleção de troca não encontrada.", 404);
+  }
+  if (tradeSet.user.username !== ownerUsername) {
+    throw new AppError("Essa carta não pertence a este colecionador.", 409);
+  }
+  if (fromUser?.id === tradeSet.userId) {
+    throw new AppError("Você não pode solicitar troca das suas próprias cartas.", 400);
+  }
 
   const wanted = await prisma.tradeEntry.findUnique({
     where: {

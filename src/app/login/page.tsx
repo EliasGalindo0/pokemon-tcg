@@ -28,7 +28,7 @@ export default async function LoginPage({
         <p className="text-xs font-semibold uppercase tracking-[0.2em] text-ember">Acesso</p>
         <h1 className="mt-2 font-display text-4xl tracking-tight">Entrar</h1>
         <p className="mt-2 text-sm text-muted">
-          Entre com o usuário liberado pelo administrador. Visitantes podem ver as trocas sem login.
+          Entre com o usuário liberado pelo administrador. Visitantes podem ver coleções e trocas sem login.
         </p>
       </div>
       <LoginForm next={next ?? "/"} />

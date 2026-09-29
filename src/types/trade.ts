@@ -1,3 +1,17 @@
+export type TradeOwner = {
+  id: string;
+  username: string;
+  displayName: string;
+};
+
+export type PublicTrader = {
+  username: string;
+  displayName: string;
+  setCount: number;
+  unitCount: number;
+  sampleImages: string[];
+};
+
 export type TradeSetSummary = {
   id: string;
   tcgSetId: string;
@@ -38,4 +52,17 @@ export type TradeBoard = {
   ownedSlots: number;
   unitCount: number;
   slots: TradeSlot[];
+  owner: TradeOwner;
+};
+
+export type TradeStockSet = {
+  id: string;
+  tcgSetId: string;
+  name: string;
+  logoUrl: string | null;
+  language: string;
+  official: number;
+  unitCount: number;
+  entries: TradeSlot[];
+  owner: TradeOwner;
 };
