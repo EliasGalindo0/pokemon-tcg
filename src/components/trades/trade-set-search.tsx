@@ -85,7 +85,7 @@ export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?
 
       <p className="text-sm text-muted">
         Informe o número impresso, como <span className="font-medium text-ink">001/094</span>. O segundo valor
-        identifica a coleção. Promoções com infinito usam <span className="font-medium text-ink">016/∞</span>.
+        identifica a coleção (com zeros). Promoções usam <span className="font-medium text-ink">095/∞</span>.
       </p>
 
       {message ? (

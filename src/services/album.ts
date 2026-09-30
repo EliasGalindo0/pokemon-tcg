@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { localNumber, printedCardNumber } from "@/lib/card-number";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { catalogImageUrl, catalogLogoUrl, fetchCatalogCard, fetchTcg } from "@/services/catalog";
@@ -36,13 +37,8 @@ function assertSetId(setId: string) {
   return id;
 }
 
-function localNumber(value: string | number | null | undefined) {
-  const head = String(value ?? "").split("/")[0]?.trim() ?? "";
-  return head.replace(/^0+(?=\d)/, "") || head;
-}
-
 function printedNumber(localId: string, official: number) {
-  return official > 0 ? `${localId}/${official}` : localId;
+  return printedCardNumber(localId, official);
 }
 
 function slotFromBrief(card: TcgSetCard, official: number): AlbumSlot | null {

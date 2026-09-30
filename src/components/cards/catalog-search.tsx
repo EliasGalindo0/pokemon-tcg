@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { looksLikeCardNumberQuery } from "@/lib/card-number";
 import { controlClass } from "@/components/ui/field";
 import { RARITY_LABEL } from "@/lib/labels";
 import type { CatalogHit, CatalogSearchResult } from "@/types/catalog";
@@ -23,7 +24,7 @@ export function CatalogSearch({
 
   useEffect(() => {
     const name = query.trim();
-    const byNumber = /^(?:#)?\d{1,4}(?:\s*\/\s*\d{1,4})?$/.test(name);
+    const byNumber = looksLikeCardNumberQuery(name);
     if (!byNumber && name.length < 2) return;
 
     const controller = new AbortController();
@@ -55,7 +56,7 @@ export function CatalogSearch({
   }, [query, language]);
 
   const trimmed = query.trim();
-  const visible = /^(?:#)?\d{1,4}(?:\s*\/\s*\d{1,4})?$/.test(trimmed) || trimmed.length >= 2;
+  const visible = looksLikeCardNumberQuery(trimmed) || trimmed.length >= 2;
 
   return (
     <section className="rounded-2xl border border-line bg-card p-4">
@@ -67,19 +68,18 @@ export function CatalogSearch({
           onChange={(event) => {
             setQuery(event.target.value);
             const next = event.target.value.trim();
-            const byNumber = /^(?:#)?\d{1,4}(?:\s*\/\s*\d{1,4})?$/.test(next);
-            if (!byNumber && next.length < 2) {
+            if (!looksLikeCardNumberQuery(next) && next.length < 2) {
               setItems([]);
               setStatus("idle");
             }
           }}
-          placeholder="Nome ou número, ex.: Charizard ou 006"
+          placeholder="Nome ou número, ex.: Lucario, 095/∞ ou 094/094"
           className={controlClass}
           autoComplete="off"
         />
       </label>
       <p className="mt-2 text-xs text-muted">
-        Imagem, coleção, número, raridade e preço de referência vêm da TCGdex. O preço é em dólar ou euro.
+        Promos usam infinito (095/∞). O segundo número da coleção mantém zeros (094/094).
       </p>
 
       {visible && status === "loading" ? <p className="mt-3 text-sm text-muted">Buscando cartas…</p> : null}

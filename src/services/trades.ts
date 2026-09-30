@@ -1,4 +1,10 @@
 import { AppError } from "@/lib/errors";
+import {
+  isPromoSetBrief,
+  localNumber,
+  parseCardNumber,
+  printedCardNumber,
+} from "@/lib/card-number";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { catalogImageUrl, catalogLanguage, catalogLogoUrl, fetchTcg } from "@/services/catalog";
@@ -29,25 +35,8 @@ export function tradeLanguage(value: string | undefined): LanguageValue {
   return isOneOf(LANGUAGES, value) ? value : "PT_BR";
 }
 
-function localNumber(value: string | number | null | undefined) {
-  const head = String(value ?? "").split("/")[0]?.trim() ?? "";
-  return head.replace(/^0+(?=\d)/, "") || head;
-}
-
-function printedNumber(localId: string, official: number) {
-  return official > 0 ? `${localId}/${official}` : `${localId}/∞`;
-}
-
-function parseCardNumber(input: string): { localId: string; official: number | null; infinite: boolean } | null {
-  const trimmed = input.trim();
-  const infinite = trimmed.match(/^(?:#)?0*(\d{1,4})\s*\/\s*(?:∞|inf(?:inity)?|\*|oo)$/i);
-  if (infinite) {
-    return { localId: infinite[1], official: null, infinite: true };
-  }
-
-  const match = trimmed.match(/^(?:#)?0*(\d{1,4})\s*\/\s*0*(\d{1,4})$/);
-  if (!match) return null;
-  return { localId: match[1], official: Number(match[2]), infinite: false };
+function printedNumber(localId: string, official: number, promo = false) {
+  return printedCardNumber(localId, promo ? 0 : official);
 }
 
 async function readCatalogJson<T>(path: string): Promise<T | null> {
@@ -70,14 +59,14 @@ async function loadCatalogSet(setId: string, language: LanguageValue) {
   return set;
 }
 
-function slotFromBrief(card: TcgSetCard, official: number): TradeSlot | null {
+function slotFromBrief(card: TcgSetCard, official: number, promo: boolean): TradeSlot | null {
   if (!card.id || !card.name || card.localId === undefined) return null;
   const localId = String(card.localId);
   return {
     tcgId: card.id,
     name: card.name,
     localId,
-    number: printedNumber(localId, official),
+    number: printedNumber(localId, official, promo),
     imageUrl: catalogImageUrl(card.image, "low"),
     quantity: 0,
   };
@@ -107,8 +96,8 @@ export async function resolveTradeSetsFromCardNumber(
   language: LanguageValue,
 ): Promise<TradeSetCandidate[]> {
   const parsed = parseCardNumber(query);
-  if (!parsed) {
-    throw new AppError("Use o formato do número da carta, ex.: 001/094 ou 016/∞.", 400);
+  if (!parsed || (!parsed.infinite && parsed.official == null)) {
+    throw new AppError("Use o formato do número da carta, ex.: 001/094 ou 095/∞.", 400);
   }
 
   const lang = catalogLanguage(language);
@@ -118,20 +107,21 @@ export async function resolveTradeSetsFromCardNumber(
   }
 
   const matches = parsed.infinite
-    ? sets.filter((set) => Boolean(set.id && set.name) && (set.cardCount?.official ?? 0) === 0)
+    ? sets.filter((set) => Boolean(set.id && set.name) && isPromoSetBrief(set))
     : sets.filter(
         (set) => Boolean(set.id && set.name) && (set.cardCount?.official ?? 0) === parsed.official,
       );
 
   const candidates: TradeSetCandidate[] = [];
-  for (const brief of matches.slice(0, parsed.infinite ? 40 : 12)) {
+  for (const brief of matches.slice(0, parsed.infinite ? 60 : 12)) {
     const set = await readCatalogJson<TcgSet>(`${lang}/sets/${encodeURIComponent(brief.id!)}`);
     if (!set?.id || !set.name || !set.cards?.length) continue;
 
-    const matchCard = set.cards.find((card) => localNumber(card.localId) === parsed.localId);
+    const matchCard = set.cards.find((card) => localNumber(card.localId) === parsed.localKey);
     if (!matchCard) continue;
 
     const official = set.cardCount?.official ?? parsed.official ?? 0;
+    const promo = parsed.infinite || isPromoSetBrief(set);
     const localId = String(matchCard.localId ?? parsed.localId);
     candidates.push({
       tcgSetId: set.id,
@@ -139,7 +129,7 @@ export async function resolveTradeSetsFromCardNumber(
       logoUrl: catalogLogoUrl(set.logo),
       official,
       total: set.cards.length,
-      sampleNumber: printedNumber(localId, official),
+      sampleNumber: printedNumber(localId, official, promo),
     });
   }
 
@@ -175,8 +165,9 @@ export async function getTradeBoard(userId: string, id: string): Promise<TradeBo
 
   const catalog = await loadCatalogSet(tradeSet.tcgSetId, tradeSet.language);
   const official = catalog.cardCount?.official ?? tradeSet.official;
+  const promo = isPromoSetBrief(catalog);
   const slots = (catalog.cards ?? [])
-    .map((card) => slotFromBrief(card, official))
+    .map((card) => slotFromBrief(card, official, promo))
     .filter((slot): slot is TradeSlot => Boolean(slot));
 
   const byTcg = new Map(tradeSet.entries.map((entry) => [entry.tcgId, entry.quantity]));
@@ -211,7 +202,8 @@ export async function setTradeQuantity(userId: string, tradeSetId: string, tcgId
 
   const localId = String(card.localId);
   const official = catalog.cardCount?.official ?? tradeSet.official;
-  const number = printedNumber(localId, official);
+  const promo = isPromoSetBrief(catalog);
+  const number = printedNumber(localId, official, promo);
   const imageUrl = catalogImageUrl(card.image, "low");
 
   if (next <= 0) {
@@ -292,7 +284,8 @@ export async function syncTradeExcessFromCard(
 
   const tradeSet = await createTradeSet(userId, tcgSetId, card.language);
   const official = catalog.cardCount?.official ?? tradeSet.official;
-  const number = printedNumber(String(match.localId), official);
+  const promo = isPromoSetBrief(catalog);
+  const number = printedNumber(String(match.localId), official, promo);
   const imageUrl = catalogImageUrl(match.image, "low") ?? card.imageUrl;
 
   if (excess <= 0) {

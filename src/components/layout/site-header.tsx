@@ -23,6 +23,7 @@ export async function SiteHeader() {
       items.push({ href: "/album", label: "Álbum" });
     }
     items.push({ href: "/trocas", label: "Trocas" });
+    if (user) items.push({ href: "/eventos", label: "Eventos" });
     items.push({ href: "/galeria", label: "Galerias" });
     if (user) items.push({ href: "/cards", label: "Minha galeria" });
     if (admin) {

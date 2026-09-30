@@ -1,3 +1,10 @@
+import {
+  isPromoSetBrief,
+  localIdSearchVariants,
+  localNumber,
+  parseCardNumber,
+  printedCardNumber,
+} from "@/lib/card-number";
 import { AppError } from "@/lib/errors";
 import { isOneOf, LANGUAGES, type LanguageValue, type RarityValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
@@ -132,17 +139,20 @@ function marketQuote(card: TcgCard): { amount: string; currency: "USD" | "EUR" }
 
 function toHit(card: TcgCard, language: LanguageValue): CatalogHit | null {
   if (!card.id || !card.name || !card.set?.name) return null;
-  const official = card.set.cardCount?.official;
+  const official = card.set.cardCount?.official ?? 0;
   const localId = card.localId === undefined ? "" : String(card.localId);
   const quote = marketQuote(card);
   const code = (card.set.id ?? "").slice(0, 16);
+  const promo =
+    mapRarity(card.rarity, Boolean(card.variants?.holo)) === "PROMO" ||
+    isPromoSetBrief({ id: card.set.id, name: card.set.name, cardCount: card.set.cardCount });
 
   return {
     id: card.id,
     name: card.name,
     setName: card.set.name,
     setCode: code,
-    cardNumber: official ? `${localId}/${official}` : localId,
+    cardNumber: printedCardNumber(localId, promo && official > 0 ? 0 : official),
     rarity: mapRarity(card.rarity, Boolean(card.variants?.holo)),
     language,
     imageUrl: imageUrl(card.image, "high"),
@@ -175,32 +185,55 @@ async function readJson<T>(response: Response): Promise<T | null> {
   return (await response.json()) as T;
 }
 
-function cardNumberQuery(query: string) {
-  const match = query.trim().match(/^(?:#)?0*(\d{1,4})(?:\s*\/\s*\d{1,4})?$/);
-  return match?.[1] ?? null;
+function setIdFromCardId(cardId: string) {
+  const index = cardId.lastIndexOf("-");
+  return index > 0 ? cardId.slice(0, index) : cardId;
 }
 
-async function preferKnownSets(ids: string[], userId?: string) {
+async function preferKnownSets(ids: string[], preferPromo: boolean, userId?: string) {
   const sets = await prisma.set.findMany({
     ...(userId ? { where: { userId } } : {}),
     select: { code: true },
   });
   const codes = sets.map((set) => set.code?.toLowerCase()).filter((code): code is string => Boolean(code));
   const known = ids.filter((id) => codes.some((code) => id.toLowerCase().startsWith(`${code}-`)));
-  const rest = ids.filter((id) => !known.includes(id));
-  return [...known, ...rest.reverse()].slice(0, 12);
+  const promo = ids.filter((id) => isPromoSetBrief({ id: setIdFromCardId(id) }));
+  const rest = ids.filter((id) => !known.includes(id) && !promo.includes(id));
+  const ordered = preferPromo
+    ? [...promo, ...known, ...rest.reverse()]
+    : [...known, ...promo, ...rest.reverse()];
+  return [...new Set(ordered)].slice(0, 12);
 }
 
-async function searchIds(path: string, query: string) {
-  const number = cardNumberQuery(query);
-  const filter = number ? `localId=${encodeURIComponent(number)}` : `name=${encodeURIComponent(query)}`;
-  const perPage = number ? 100 : 12;
-  const url = `${BASE_URL}/${path}/cards?${filter}&pagination:page=1&pagination:itemsPerPage=${perPage}`;
+async function fetchLocalIdIds(path: string, localId: string) {
+  const url = `${BASE_URL}/${path}/cards?localId=${encodeURIComponent(localId)}&pagination:page=1&pagination:itemsPerPage=100`;
   const response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
   const data = await readJson<TcgBrief[]>(response);
   if (!Array.isArray(data)) return [];
-  const ids = data.map((item) => item.id).filter((id): id is string => Boolean(id));
-  return number ? preferKnownSets(ids) : ids;
+  return data.map((item) => item.id).filter((id): id is string => Boolean(id));
+}
+
+async function searchIds(path: string, query: string) {
+  const parsed = parseCardNumber(query);
+  if (!parsed) {
+    const url = `${BASE_URL}/${path}/cards?name=${encodeURIComponent(query)}&pagination:page=1&pagination:itemsPerPage=12`;
+    const response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
+    const data = await readJson<TcgBrief[]>(response);
+    if (!Array.isArray(data)) return [];
+    return data.map((item) => item.id).filter((id): id is string => Boolean(id));
+  }
+
+  const variants = localIdSearchVariants(parsed.localId);
+  const gathered: string[] = [];
+  for (const variant of variants) {
+    const ids = await fetchLocalIdIds(path, variant);
+    for (const id of ids) {
+      if (!gathered.includes(id)) gathered.push(id);
+    }
+    if (gathered.length >= 40) break;
+  }
+
+  return preferKnownSets(gathered, parsed.infinite, undefined);
 }
 
 function isEnergyCategory(category: string | undefined) {
@@ -241,11 +274,11 @@ async function loadCard(path: string, id: string) {
 
 export async function searchCatalog(query: string, languageInput?: string): Promise<CatalogSearchResult> {
   const name = query.trim();
-  const byNumber = cardNumberQuery(name) !== null;
-  if (!byNumber && name.length < 2) return { items: [], language: "EN" };
+  const parsed = parseCardNumber(name);
+  if (!parsed && name.length < 2) return { items: [], language: "EN" };
 
   const language = isOneOf(LANGUAGES, languageInput) ? languageInput : "EN";
-  const cacheKey = `catalog:v5:${language}:${name.toLowerCase()}`;
+  const cacheKey = `catalog:v6:${language}:${name.toLowerCase()}`;
   const cached = await cacheGet<CatalogSearchResult>(cacheKey);
   if (cached) return cached;
 
@@ -260,7 +293,7 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
   }
 
   const details = await Promise.all(ids.map((id) => loadCard(path, id)));
-  const hits = (
+  let hits = (
     await Promise.all(
       details.map(async (card) => {
         if (!card) return null;
@@ -271,10 +304,28 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
         return { ...hit, imageUrl: artwork, thumbUrl: artwork };
       }),
     )
-  ).filter((card): card is CatalogHit => card !== null)
-    .sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)))
-    .slice(0, 12);
-  const items = await Promise.all(hits.map((hit) => priceInBrl(hit)));
+  ).filter((card): card is CatalogHit => card !== null);
+
+  if (parsed?.official != null) {
+    const wanted = String(parsed.official);
+    const filtered = hits.filter((hit) => {
+      const denom = hit.cardNumber.split("/")[1];
+      return denom === wanted || denom === printedCardNumber(parsed.localId, parsed.official!).split("/")[1];
+    });
+    if (filtered.length > 0) hits = filtered;
+  }
+
+  if (parsed?.infinite) {
+    hits.sort((a, b) => {
+      const aPromo = a.cardNumber.includes("∞") || a.rarity === "PROMO" ? 1 : 0;
+      const bPromo = b.cardNumber.includes("∞") || b.rarity === "PROMO" ? 1 : 0;
+      return bPromo - aPromo || Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl));
+    });
+  } else {
+    hits.sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)));
+  }
+
+  const items = await Promise.all(hits.slice(0, 12).map((hit) => priceInBrl(hit)));
 
   const result = { items, language: resultLanguage };
   await cacheSet(cacheKey, result, 600);
@@ -283,12 +334,6 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
 
 type TcgSetBrief = { id?: string; name?: string };
 type TcgSetCard = { localId?: string | number; name?: string; image?: string };
-
-function localNumber(value: string | number | null | undefined) {
-  if (value === null || value === undefined) return "";
-  const head = String(value).split("/")[0]?.trim() ?? "";
-  return head.replace(/^0+(?=\d)/, "");
-}
 
 async function imageIndexForSet(setName: string, language: LanguageValue) {
   const paths = [...new Set([LANGUAGE_PATH[language], "en"])];
