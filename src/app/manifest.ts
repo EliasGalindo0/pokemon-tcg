@@ -1,10 +1,11 @@
 import type { MetadataRoute } from "next";
+import { APP_BRAND, APP_TAGLINE } from "@/lib/site-copy";
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Álbum Pokémon TCG",
-    short_name: "Álbum",
-    description: "Coleção, álbum e decks de Pokémon TCG.",
+    name: `${APP_BRAND} ${APP_TAGLINE}`,
+    short_name: APP_BRAND,
+    description: "Coleção, trocas e decks de Pokémon TCG.",
     start_url: "/",
     scope: "/",
     display: "standalone",

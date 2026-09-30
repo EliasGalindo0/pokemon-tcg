@@ -5,6 +5,19 @@ import { GlobalSearch } from "@/components/layout/global-search";
 import { SiteNav, type SiteNavItem } from "@/components/layout/site-nav";
 import { Button, ButtonLink } from "@/components/ui/button";
 import { getSessionUser, isAdmin } from "@/lib/auth";
+import {
+  APP_BRAND,
+  APP_TAGLINE,
+  NAV_ACCOUNT,
+  NAV_COLLECTIONS,
+  NAV_DASHBOARD,
+  NAV_DECKS,
+  NAV_EVENTS,
+  NAV_MY_COLLECTION,
+  NAV_OFFERS,
+  NAV_TRADES,
+  NAV_USERS,
+} from "@/lib/site-copy";
 import { countPendingTradeOffers } from "@/services/trade-offers";
 
 export async function SiteHeader() {
@@ -12,30 +25,35 @@ export async function SiteHeader() {
   const admin = await isAdmin();
   const mustChange = Boolean(user?.mustChangeCredentials);
   const pendingOffers = user && !mustChange ? await countPendingTradeOffers(user.id) : 0;
-  const homeHref = mustChange ? "/conta" : admin ? "/" : "/trocas";
+  const homeHref = mustChange ? "/conta" : admin ? "/" : user ? "/cards" : "/galeria";
 
   const items: SiteNavItem[] = [];
   if (mustChange) {
-    items.push({ href: "/conta", label: "Conta" });
+    items.push({ href: "/conta", label: NAV_ACCOUNT });
   } else {
     if (admin) {
-      items.push({ href: "/", label: "Painel" });
-      items.push({ href: "/album", label: "Álbum" });
+      items.push({ href: "/", label: NAV_DASHBOARD });
     }
-    items.push({ href: "/trocas", label: "Trocas" });
-    if (user) items.push({ href: "/eventos", label: "Eventos" });
-    items.push({ href: "/galeria", label: "Galerias" });
-    if (user) items.push({ href: "/cards", label: "Minha galeria" });
+    if (user) {
+      items.push({ href: "/cards", label: NAV_MY_COLLECTION });
+    }
+    items.push({ href: "/galeria", label: NAV_COLLECTIONS });
+    items.push({ href: "/trocas", label: NAV_TRADES });
+    if (user) {
+      items.push({ href: "/eventos", label: NAV_EVENTS });
+    }
     if (admin) {
-      items.push({ href: "/decks", label: "Decks" });
-      items.push({ href: "/admin/usuarios", label: "Usuários" });
+      items.push({ href: "/decks", label: NAV_DECKS });
     }
     if (user) {
       items.push({
         href: "/ofertas",
-        label: pendingOffers > 0 ? `Ofertas (${pendingOffers})` : "Ofertas",
+        label: pendingOffers > 0 ? `${NAV_OFFERS} (${pendingOffers})` : NAV_OFFERS,
       });
-      items.push({ href: "/conta", label: "Conta" });
+      items.push({ href: "/conta", label: NAV_ACCOUNT });
+    }
+    if (admin) {
+      items.push({ href: "/admin/usuarios", label: NAV_USERS });
     }
   }
 
@@ -53,8 +71,8 @@ export async function SiteHeader() {
             <Pokeball className="h-8 w-8" />
           </span>
           <span className="min-w-0">
-            <span className="block font-display text-xl leading-none">Álbum</span>
-            <span className="hidden text-xs text-white/65 sm:block">Pokémon TCG</span>
+            <span className="block font-display text-xl leading-none">{APP_BRAND}</span>
+            <span className="hidden text-xs text-white/65 sm:block">{APP_TAGLINE}</span>
           </span>
         </Link>
 

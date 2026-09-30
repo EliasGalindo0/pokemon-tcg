@@ -22,6 +22,7 @@ export type TradeOfferDTO = {
 };
 
 export type TradeOfferPayload = {
+  ownerUsername: string;
   wantedTradeSetId: string;
   wantedTcgId: string;
   offeredTcgId: string;

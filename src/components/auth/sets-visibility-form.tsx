@@ -43,7 +43,7 @@ export function SetsVisibilityForm({ sets: initial }: { sets: SetDTO[] }) {
       <div>
         <h2 className="font-display text-2xl">Privacidade das coleções</h2>
         <p className="mt-1 text-sm text-muted">
-          Cada set pode ser público ou privado. Só os públicos aparecem em Galerias (sem preço pago).
+          Cada set pode ser público ou privado. Só os públicos aparecem em Coleções (sem preço pago).
         </p>
       </div>
       <ul className="divide-y divide-line border-y border-line">

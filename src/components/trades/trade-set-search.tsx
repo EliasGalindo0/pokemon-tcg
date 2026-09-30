@@ -9,7 +9,13 @@ import { controlClass } from "@/components/ui/field";
 import { LANGUAGE_LABEL, LANGUAGES } from "@/lib/labels";
 import type { TradeSetCandidate } from "@/types/trade";
 
-export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?: string }) {
+export function TradeSetSearch({
+  defaultLanguage = "PT_BR",
+  username,
+}: {
+  defaultLanguage?: string;
+  username?: string;
+}) {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [language, setLanguage] = useState(defaultLanguage);
@@ -44,7 +50,7 @@ export function TradeSetSearch({ defaultLanguage = "PT_BR" }: { defaultLanguage?
         setMessage(result.message ?? "Não foi possível cadastrar a coleção.");
         return;
       }
-      router.push(`/trocas?tab=${result.id}`);
+      router.push(username ? `/trocas/${username}?tab=${result.id}` : `/trocas?tab=${result.id}`);
       router.refresh();
     });
   }

@@ -13,11 +13,19 @@ export function TradeTabs({
   activeId,
   board,
   readOnly = false,
+  stockOnly = false,
+  canOffer,
+  viewerDisplayName,
+  basePath = "/trocas",
 }: {
   sets: TradeSetSummary[];
   activeId: string | null;
   board: TradeBoard | null;
   readOnly?: boolean;
+  stockOnly?: boolean;
+  canOffer?: boolean;
+  viewerDisplayName?: string | null;
+  basePath?: string;
 }) {
   const router = useRouter();
 
@@ -42,7 +50,7 @@ export function TradeTabs({
               type="button"
               role="tab"
               aria-selected={selected}
-              onClick={() => router.push(`/trocas?tab=${set.id}`)}
+              onClick={() => router.push(`${basePath}?tab=${set.id}`)}
               className={`rounded-full px-3 py-1.5 text-sm transition ${
                 selected ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
               }`}
@@ -76,12 +84,18 @@ export function TradeTabs({
               )}
             </div>
           </div>
-          <TradeBoardView board={board} readOnly={readOnly} />
+          <TradeBoardView
+            board={board}
+            readOnly={readOnly}
+            stockOnly={stockOnly}
+            canOffer={canOffer}
+            viewerDisplayName={viewerDisplayName}
+          />
         </div>
       ) : (
         <p className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-12 text-center text-sm text-muted">
           Selecione uma coleção nas abas.{" "}
-          <Link href={`/trocas?tab=${sets[0].id}`} className="text-navy hover:underline">
+          <Link href={`${basePath}?tab=${sets[0].id}`} className="text-navy hover:underline">
             Abrir {sets[0].name}
           </Link>
         </p>

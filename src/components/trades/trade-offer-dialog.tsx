@@ -10,17 +10,23 @@ import type { TradeSlot } from "@/types/trade";
 
 export function TradeOfferDialog({
   tradeSetId,
+  ownerUsername,
+  ownerDisplayName,
+  viewerDisplayName,
   language,
   slot,
   onClose,
 }: {
   tradeSetId: string;
+  ownerUsername: string;
+  ownerDisplayName: string;
+  viewerDisplayName?: string | null;
   language: string;
   slot: TradeSlot;
   onClose: () => void;
 }) {
   const [offered, setOffered] = useState<CatalogHit | null>(null);
-  const [visitorName, setVisitorName] = useState("");
+  const [visitorName, setVisitorName] = useState(viewerDisplayName ?? "");
   const [visitorNote, setVisitorNote] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [done, setDone] = useState(false);
@@ -34,11 +40,12 @@ export function TradeOfferDialog({
     setMessage(null);
     startTransition(async () => {
       const result = await proposeTradeOfferAction({
+        ownerUsername,
         wantedTradeSetId: tradeSetId,
         wantedTcgId: slot.tcgId,
         offeredTcgId: offered.id,
         offeredLanguage: offered.language || language,
-        visitorName,
+        visitorName: viewerDisplayName || visitorName,
         visitorNote,
       });
       if (!result.ok) {
@@ -68,7 +75,7 @@ export function TradeOfferDialog({
               {slot.name}
             </h2>
             <p className="mt-1 text-sm text-muted">
-              Você quer esta carta ({slot.number}). Ofereça uma carta do catálogo em troca.
+              Carta de {ownerDisplayName}. Ofereça uma carta do catálogo para solicitar esta ({slot.number}).
             </p>
           </div>
           <button
@@ -91,7 +98,7 @@ export function TradeOfferDialog({
           </span>
           <div className="min-w-0 self-center">
             <p className="font-medium">{slot.name}</p>
-            <p className="text-sm text-muted">{slot.number} · disponível para troca</p>
+            <p className="text-sm text-muted">{slot.number} · {ownerDisplayName}</p>
           </div>
         </div>
 
@@ -127,16 +134,22 @@ export function TradeOfferDialog({
               </div>
             ) : null}
 
-            <label className="block text-sm">
-              <span className="mb-1.5 block text-muted">Seu nome (opcional)</span>
-              <input
-                value={visitorName}
-                onChange={(event) => setVisitorName(event.target.value)}
-                maxLength={80}
-                className={controlClass}
-                placeholder="Como o dono pode te reconhecer"
-              />
-            </label>
+            {viewerDisplayName ? (
+              <p className="text-sm text-muted">
+                A oferta vai como <span className="font-medium text-ink">{viewerDisplayName}</span>.
+              </p>
+            ) : (
+              <label className="block text-sm">
+                <span className="mb-1.5 block text-muted">Seu nome (opcional)</span>
+                <input
+                  value={visitorName}
+                  onChange={(event) => setVisitorName(event.target.value)}
+                  maxLength={80}
+                  className={controlClass}
+                  placeholder="Como o dono pode te reconhecer"
+                />
+              </label>
+            )}
             <label className="block text-sm">
               <span className="mb-1.5 block text-muted">Mensagem (opcional)</span>
               <textarea
