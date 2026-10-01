@@ -1,38 +1,46 @@
 "use client";
 
 import { useActionState, useState } from "react";
-import { addPlayerEventPrizeAction, deletePlayerEventPrizeAction, type ActionState } from "@/actions/events";
+import {
+  addPlayerCardAction,
+  deletePlayerCardAction,
+  type ActionState,
+} from "@/actions/player-cards";
 import { CatalogSearch } from "@/components/cards/catalog-search";
 import { Button } from "@/components/ui/button";
 import { Field, controlClass } from "@/components/ui/field";
 import { LANGUAGE_LABEL, RARITY_LABEL, optionsFrom } from "@/lib/labels";
 import type { CatalogHit } from "@/types/catalog";
-import type { PlayerEventPrizeDTO } from "@/types/event";
+import type { PlayerCardDTO } from "@/types/player-card";
 
 const rarityOptions = optionsFrom(RARITY_LABEL);
 const languageOptions = optionsFrom(LANGUAGE_LABEL);
 
-export function EventPrizeBoard({
-  eventId,
+export function PlayerCardsPanel({
+  cards,
   language,
-  prizes,
 }: {
-  eventId: string;
+  cards: PlayerCardDTO[];
   language: string;
-  prizes: PlayerEventPrizeDTO[];
 }) {
-  const bound = addPlayerEventPrizeAction.bind(null, eventId);
-  const [state, formAction, pending] = useActionState<ActionState, FormData>(bound, {});
+  const [state, formAction, pending] = useActionState<ActionState, FormData>(addPlayerCardAction, {});
   const [picked, setPicked] = useState<CatalogHit | null>(null);
 
   return (
     <div className="space-y-6">
+      <div>
+        <h2 className="font-display text-3xl tracking-tight">Cartas de jogador</h2>
+        <p className="mt-1 text-sm text-muted">
+          Prêmios de ligas, campeonatos e eventos presenciais. Informe o evento em que ganhou cada carta.
+        </p>
+      </div>
+
       <CatalogSearch language={language} onPick={setPicked} />
 
       <form action={formAction} className="space-y-4 rounded-3xl border border-line bg-card p-5">
-        <h2 className="font-display text-2xl tracking-tight">Carta ganha no evento</h2>
+        <h3 className="font-display text-xl tracking-tight">Registrar carta</h3>
         {state.message ? (
-          <p className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-ember" role="alert">
+          <p className="rounded-2xl border border-line bg-paper px-4 py-3 text-sm" role="status">
             {state.message}
           </p>
         ) : null}
@@ -46,7 +54,7 @@ export function EventPrizeBoard({
               id="name"
               name="name"
               required
-              key={picked?.id ?? "empty-name"}
+              key={picked?.id ?? "player-name"}
               defaultValue={picked?.name ?? ""}
               className={controlClass}
             />
@@ -55,29 +63,42 @@ export function EventPrizeBoard({
             <input
               id="cardNumber"
               name="cardNumber"
-              key={picked?.id ?? "empty-number"}
+              key={picked?.id ?? "player-number"}
               defaultValue={picked?.cardNumber ?? ""}
-              placeholder="095/∞"
               className={controlClass}
             />
           </Field>
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Coleção" name="setName">
+          <Field label="Coleção / série" name="setName">
             <input
               id="setName"
               name="setName"
-              key={picked?.id ?? "empty-set"}
+              key={picked?.id ?? "player-set"}
               defaultValue={picked?.setName ?? ""}
               className={controlClass}
             />
+          </Field>
+          <Field label="Evento" name="eventName">
+            <input
+              id="eventName"
+              name="eventName"
+              placeholder="Ex.: Liga de Curitiba — etapa março"
+              className={controlClass}
+            />
+          </Field>
+        </div>
+
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Data do evento" name="eventDate">
+            <input id="eventDate" name="eventDate" type="date" className={controlClass} />
           </Field>
           <Field label="Colocação / prêmio" name="placement">
             <input
               id="placement"
               name="placement"
-              placeholder="Ex.: 1º, Top 8, prêmio de participação"
+              placeholder="Ex.: 1º, Top 8, participação"
               className={controlClass}
             />
           </Field>
@@ -88,7 +109,7 @@ export function EventPrizeBoard({
             <select
               id="rarity"
               name="rarity"
-              key={picked?.id ?? "empty-rarity"}
+              key={picked?.id ?? "player-rarity"}
               defaultValue={picked?.rarity ?? "PROMO"}
               className={controlClass}
             >
@@ -103,7 +124,7 @@ export function EventPrizeBoard({
             <select
               id="language"
               name="language"
-              key={picked?.id ?? "empty-lang"}
+              key={picked?.id ?? "player-lang"}
               defaultValue={picked?.language ?? language}
               className={controlClass}
             >
@@ -132,39 +153,44 @@ export function EventPrizeBoard({
         </Field>
 
         <Button type="submit" disabled={pending}>
-          {pending ? "Adicionando…" : "Adicionar carta"}
+          {pending ? "Salvando…" : "Adicionar carta de jogador"}
         </Button>
       </form>
 
-      {prizes.length === 0 ? (
+      {cards.length === 0 ? (
         <p className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-12 text-center text-sm text-muted">
-          Nenhuma carta registrada neste evento ainda.
+          Nenhuma carta de jogador registrada ainda.
         </p>
       ) : (
         <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-          {prizes.map((prize) => (
-            <li key={prize.id} className="space-y-2 rounded-2xl border border-line bg-card p-2">
+          {cards.map((card) => (
+            <li key={card.id} className="space-y-2 rounded-2xl border border-line bg-card p-2">
               <div className="aspect-[63/88] overflow-hidden rounded-xl bg-navy/5">
-                {prize.imageUrl ? (
+                {card.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={prize.imageUrl} alt="" className="h-full w-full object-cover" />
+                  <img src={card.imageUrl} alt="" className="h-full w-full object-cover" />
                 ) : (
                   <span className="grid h-full place-items-center px-2 text-center text-xs text-muted">
-                    {prize.name}
+                    {card.name}
                   </span>
                 )}
               </div>
               <div className="px-0.5">
-                <p className="truncate text-sm font-medium" title={prize.name}>
-                  {prize.name}
+                <p className="truncate text-sm font-medium" title={card.name}>
+                  {card.name}
                 </p>
                 <p className="truncate text-xs text-muted">
-                  {prize.cardNumber ?? "—"}
-                  {prize.quantity > 1 ? ` · ×${prize.quantity}` : ""}
+                  {card.cardNumber ?? "—"}
+                  {card.quantity > 1 ? ` · ×${card.quantity}` : ""}
                 </p>
-                {prize.placement ? <p className="text-xs text-muted">{prize.placement}</p> : null}
+                {card.eventName ? (
+                  <p className="truncate text-xs text-muted" title={card.eventName}>
+                    {card.eventName}
+                  </p>
+                ) : null}
+                {card.placement ? <p className="text-xs text-muted">{card.placement}</p> : null}
               </div>
-              <form action={deletePlayerEventPrizeAction.bind(null, eventId, prize.id)}>
+              <form action={deletePlayerCardAction.bind(null, card.id)}>
                 <Button type="submit" variant="danger" className="w-full px-2 py-1.5 text-xs">
                   Remover
                 </Button>

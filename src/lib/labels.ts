@@ -37,18 +37,6 @@ export const DECK_FORMAT_LABEL: Record<DeckFormatValue, string> = {
   OTHER: "Outro",
 };
 
-export const EVENT_KINDS = ["CHAMPIONSHIP", "LEAGUE", "CUP", "LOCAL", "OTHER"] as const;
-
-export type EventKindValue = (typeof EVENT_KINDS)[number];
-
-export const EVENT_KIND_LABEL: Record<EventKindValue, string> = {
-  CHAMPIONSHIP: "Campeonato",
-  LEAGUE: "Liga",
-  CUP: "Copa",
-  LOCAL: "Local / loja",
-  OTHER: "Outro",
-};
-
 export const DECK_SIZE = 60;
 
 export const LANGUAGES = [

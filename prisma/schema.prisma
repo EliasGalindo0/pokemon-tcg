@@ -71,14 +71,6 @@ enum UserRole {
   MEMBER
 }
 
-enum EventKind {
-  CHAMPIONSHIP
-  LEAGUE
-  CUP
-  LOCAL
-  OTHER
-}
-
 model User {
   id                     String     @id @default(cuid())
   username               String     @unique
@@ -94,7 +86,7 @@ model User {
   decks                  Deck[]
   tradeSets              TradeSet[]
   tradeOffers            TradeOffer[]
-  playerEvents           PlayerEvent[]
+  playerCards            PlayerCard[]
 
   @@index([role])
   @@index([active])
@@ -245,39 +237,26 @@ model TradeOffer {
   @@index([wantedTradeSetId])
 }
 
-model PlayerEvent {
-  id        String             @id @default(cuid())
-  userId    String
-  user      User               @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  kind      EventKind          @default(LEAGUE)
-  location  String?
-  heldAt    DateTime?
-  notes     String?
-  createdAt DateTime           @default(now())
-  updatedAt DateTime           @updatedAt
-  prizes    PlayerEventPrize[]
-
-  @@index([userId, heldAt])
-  @@index([userId, name])
-}
-
-model PlayerEventPrize {
-  id         String      @id @default(cuid())
-  eventId    String
-  event      PlayerEvent @relation(fields: [eventId], references: [id], onDelete: Cascade)
+/** Cartas de jogador ganhas em ligas/campeonatos (separadas da coleção normal). */
+model PlayerCard {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   tcgId      String?
   name       String
   setName    String?
   cardNumber String?
   imageUrl   String?
-  rarity     Rarity      @default(PROMO)
-  language   Language    @default(PT_BR)
-  quantity   Int         @default(1)
+  rarity     Rarity    @default(PROMO)
+  language   Language  @default(PT_BR)
+  quantity   Int       @default(1)
+  eventName  String?
+  eventDate  DateTime?
   placement  String?
   notes      String?
-  createdAt  DateTime    @default(now())
-  updatedAt  DateTime    @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
 
-  @@index([eventId])
+  @@index([userId, eventDate])
+  @@index([userId, name])
 }

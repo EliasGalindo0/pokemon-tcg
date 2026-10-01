@@ -12,7 +12,6 @@ import {
   NAV_COLLECTIONS,
   NAV_DASHBOARD,
   NAV_DECKS,
-  NAV_EVENTS,
   NAV_MY_COLLECTION,
   NAV_OFFERS,
   NAV_TRADES,
@@ -39,9 +38,6 @@ export async function SiteHeader() {
     }
     items.push({ href: "/galeria", label: NAV_COLLECTIONS });
     items.push({ href: "/trocas", label: NAV_TRADES });
-    if (user) {
-      items.push({ href: "/eventos", label: NAV_EVENTS });
-    }
     if (admin) {
       items.push({ href: "/decks", label: NAV_DECKS });
     }

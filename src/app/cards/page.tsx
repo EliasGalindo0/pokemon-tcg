@@ -12,8 +12,11 @@ import { isAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import { NAV_COLLECTIONS, PAGE_MY_COLLECTION } from "@/lib/site-copy";
 import { albumLanguage, getAlbum } from "@/services/album";
+import { listPromoCards } from "@/services/cards";
+import { listPlayerCards } from "@/services/player-cards";
 import { listSets } from "@/services/sets";
 import type { AlbumView } from "@/types/album";
+import { isSpecialCollectionTab, TAB_PROMOS } from "@/types/player-card";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -39,48 +42,62 @@ export default async function MyCollectionPage({
   const language = albumLanguage(raw.language);
 
   if (raw.catalog && admin) {
+    let album;
     try {
-      const album = await getAlbum(user.id, raw.catalog, language);
-      return (
-        <div className="space-y-6">
-          <Link
-            href={`/cards?buscar=1&language=${language}`}
-            className="text-sm text-navy hover:underline"
-          >
-            ← Buscar outra coleção
-          </Link>
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <div>
-              <h1 className="font-display text-4xl tracking-tight">{album.name}</h1>
-              <p className="mt-1 text-sm text-muted">
-                Marque as cartas que você tem — elas aparecem nas abas de Minha coleção.
-              </p>
-            </div>
-            {album.logo ? (
-              <CatalogImg
-                key={album.setId}
-                src={album.logo}
-                className="h-16 w-28 object-contain"
-                fallback={<span className="text-xs text-muted">{album.setId}</span>}
-              />
-            ) : null}
-          </div>
-          <AlbumBoard album={album} language={language} />
-        </div>
-      );
+      album = await getAlbum(user.id, raw.catalog, language);
     } catch (error) {
       if (error instanceof AppError && (error.status === 404 || error.status === 400)) notFound();
       throw error;
     }
+    return (
+      <div className="space-y-6">
+        <Link
+          href={`/cards?buscar=1&language=${language}`}
+          className="text-sm text-navy hover:underline"
+        >
+          ← Buscar outra coleção
+        </Link>
+        <div className="flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h1 className="font-display text-4xl tracking-tight">{album.name}</h1>
+            <p className="mt-1 text-sm text-muted">
+              Marque as cartas que você tem — elas aparecem nas abas de Minha coleção.
+            </p>
+          </div>
+          {album.logo ? (
+            <CatalogImg
+              key={album.setId}
+              src={album.logo}
+              className="h-16 w-28 object-contain"
+              fallback={<span className="text-xs text-muted">{album.setId}</span>}
+            />
+          ) : null}
+        </div>
+        <AlbumBoard album={album} language={language} />
+      </div>
+    );
   }
 
   if (raw.catalog && !admin) {
     notFound();
   }
 
-  const sets = await listSets(user.id);
-  const activeId = raw.tab && sets.some((set) => set.id === raw.tab) ? raw.tab : (sets[0]?.id ?? null);
-  const activeSet = sets.find((set) => set.id === activeId) ?? null;
+  const [sets, promoCards, playerCards] = await Promise.all([
+    listSets(user.id),
+    listPromoCards(user.id),
+    listPlayerCards(user.id),
+  ]);
+
+  const tab = raw.tab;
+  const activeId = isSpecialCollectionTab(tab)
+    ? tab
+    : tab && sets.some((set) => set.id === tab)
+      ? tab
+      : (sets[0]?.id ?? TAB_PROMOS);
+
+  const activeSet = !isSpecialCollectionTab(activeId)
+    ? (sets.find((set) => set.id === activeId) ?? null)
+    : null;
 
   let album: AlbumView | null = null;
   if (activeSet?.code) {
@@ -99,7 +116,7 @@ export default async function MyCollectionPage({
       <PageHeader
         kicker="Suas cartas"
         title={PAGE_MY_COLLECTION}
-        description="Coleções em abas: progresso, quantidades e valores. O que for público aparece em Coleções."
+        description="Sets, promoções e cartas de jogador em abas. O que for público aparece em Coleções."
       >
         {admin ? (
           <div className="flex flex-wrap gap-2">
@@ -148,6 +165,8 @@ export default async function MyCollectionPage({
         language={language}
         canAddSets={admin}
         showSearchLink={admin && !showSearch}
+        promoCards={promoCards}
+        playerCards={playerCards}
       />
     </div>
   );

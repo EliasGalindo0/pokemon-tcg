@@ -6,7 +6,6 @@ export const NAV_DASHBOARD = "Painel";
 export const NAV_MY_COLLECTION = "Minha coleção";
 export const NAV_COLLECTIONS = "Coleções";
 export const NAV_TRADES = "Trocas";
-export const NAV_EVENTS = "Eventos";
 export const NAV_OFFERS = "Ofertas";
 export const NAV_DECKS = "Decks";
 export const NAV_ACCOUNT = "Conta";

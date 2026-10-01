@@ -4,10 +4,14 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
 import { CatalogImg } from "@/components/cards/catalog-img";
+import { PlayerCardsPanel } from "@/components/cards/player-cards-panel";
+import { PromoCollectionPanel } from "@/components/cards/promo-collection-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import type { AlbumView } from "@/types/album";
-import type { SetDTO } from "@/types/card";
+import type { CardDTO, SetDTO } from "@/types/card";
+import type { PlayerCardDTO } from "@/types/player-card";
+import { TAB_PLAYER, TAB_PROMOS } from "@/types/player-card";
 
 export function MyCollectionTabs({
   sets,
@@ -16,6 +20,8 @@ export function MyCollectionTabs({
   language,
   canAddSets,
   showSearchLink = false,
+  promoCards,
+  playerCards,
 }: {
   sets: SetDTO[];
   activeId: string | null;
@@ -23,26 +29,21 @@ export function MyCollectionTabs({
   language: string;
   canAddSets: boolean;
   showSearchLink?: boolean;
+  promoCards: CardDTO[];
+  playerCards: PlayerCardDTO[];
 }) {
   const router = useRouter();
+  const isPromos = activeId === TAB_PROMOS;
+  const isPlayer = activeId === TAB_PLAYER;
 
-  if (sets.length === 0) {
-    return (
-      <section className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-16 text-center">
-        <h2 className="font-display text-3xl">Nenhuma coleção cadastrada</h2>
-        <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-          {canAddSets
-            ? "Busque uma coleção no catálogo e marque as cartas que você tem — elas aparecem aqui em abas."
-            : "Quando você receber cartas, as coleções aparecem aqui."}
-        </p>
-        {canAddSets ? (
-          <div className="mt-6">
-            <ButtonLink href="/cards?buscar=1">Buscar coleção</ButtonLink>
-          </div>
-        ) : null}
-      </section>
-    );
+  function goTab(tab: string) {
+    router.push(`/cards?tab=${tab}&language=${language}`);
   }
+
+  const tabClass = (selected: boolean) =>
+    `rounded-full px-3 py-1.5 text-sm transition ${
+      selected ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
+    }`;
 
   return (
     <div className="space-y-5">
@@ -56,10 +57,8 @@ export function MyCollectionTabs({
                 type="button"
                 role="tab"
                 aria-selected={selected}
-                onClick={() => router.push(`/cards?tab=${set.id}&language=${language}`)}
-                className={`rounded-full px-3 py-1.5 text-sm transition ${
-                  selected ? "bg-navy text-paper" : "bg-card text-ink hover:bg-white"
-                }`}
+                onClick={() => goTab(set.id)}
+                className={tabClass(selected)}
               >
                 {set.name}
                 {typeof set.cardCount === "number" ? (
@@ -69,6 +68,30 @@ export function MyCollectionTabs({
               </button>
             );
           })}
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isPromos}
+            onClick={() => goTab(TAB_PROMOS)}
+            className={tabClass(isPromos)}
+          >
+            Promoções
+            {promoCards.length > 0 ? (
+              <span className="ml-1.5 text-xs opacity-70">· {promoCards.length}</span>
+            ) : null}
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={isPlayer}
+            onClick={() => goTab(TAB_PLAYER)}
+            className={tabClass(isPlayer)}
+          >
+            Jogador
+            {playerCards.length > 0 ? (
+              <span className="ml-1.5 text-xs opacity-70">· {playerCards.length}</span>
+            ) : null}
+          </button>
         </div>
         {showSearchLink ? (
           <Link href="/cards?buscar=1" className="text-sm text-navy hover:underline">
@@ -77,7 +100,24 @@ export function MyCollectionTabs({
         ) : null}
       </div>
 
-      {album ? (
+      {isPromos ? (
+        <PromoCollectionPanel cards={promoCards} language={language} canAdd={canAddSets} />
+      ) : isPlayer ? (
+        <PlayerCardsPanel cards={playerCards} language={language} />
+      ) : sets.length === 0 ? (
+        <section className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-16 text-center">
+          <h2 className="font-display text-3xl">Nenhuma coleção de set ainda</h2>
+          <p className="mx-auto mt-2 max-w-md text-sm text-muted">
+            Use as abas Promoções e Jogador, ou{" "}
+            {canAddSets ? "busque uma coleção no catálogo." : "aguarde cartas de sets."}
+          </p>
+          {canAddSets ? (
+            <div className="mt-6">
+              <ButtonLink href="/cards?buscar=1">Buscar coleção</ButtonLink>
+            </div>
+          ) : null}
+        </section>
+      ) : album ? (
         <div className="space-y-4">
           <div className="flex flex-wrap items-end justify-between gap-4">
             <div>

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 import { SESSION_COOKIE } from "./lib/auth-cookie";
 
-const AUTH_PREFIXES = ["/cards", "/decks", "/ofertas", "/album", "/admin", "/conta", "/eventos"];
+const AUTH_PREFIXES = ["/cards", "/decks", "/ofertas", "/album", "/admin", "/conta"];
 
 function needsAuth(pathname: string) {
   if (pathname === "/") return true;
@@ -43,8 +43,6 @@ export const config = {
     "/conta",
     "/trocas",
     "/trocas/:path*",
-    "/eventos",
-    "/eventos/:path*",
     "/galeria",
     "/galeria/:path*",
     "/login",

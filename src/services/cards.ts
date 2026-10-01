@@ -129,6 +129,24 @@ export async function getCard(userId: string, id: string) {
   return dto;
 }
 
+/** Cartas promocionais da coleção (raridade PROMO ou set com “promo” no nome). */
+export async function listPromoCards(userId: string): Promise<CardDTO[]> {
+  await fillMissingImages(userId);
+  const cards = await prisma.card.findMany({
+    where: {
+      userId,
+      OR: [
+        { rarity: "PROMO" },
+        { set: { name: { contains: "promo", mode: "insensitive" } } },
+        { set: { name: { contains: "black star", mode: "insensitive" } } },
+      ],
+    },
+    include: { set: true },
+    orderBy: [{ name: "asc" }, { cardNumber: "asc" }],
+  });
+  return withSetLogos(cards.map(toCardDto));
+}
+
 export async function createCard(userId: string, input: CardPayload) {
   const set = await resolveSet(userId, input);
   const card = await prisma.card.create({
