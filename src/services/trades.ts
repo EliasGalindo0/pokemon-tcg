@@ -7,7 +7,7 @@ import {
 } from "@/lib/card-number";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
-import { catalogImageUrl, catalogLanguage, catalogLogoUrl, fetchTcg } from "@/services/catalog";
+import { catalogLanguage, catalogLogoUrl, catalogSlotImage, fetchTcg } from "@/services/catalog";
 import type {
   PublicTrader,
   TradeBoard,
@@ -67,7 +67,7 @@ async function loadCatalogSet(setId: string, language: LanguageValue) {
   return set;
 }
 
-function slotFromBrief(card: TcgSetCard, official: number, promo: boolean): TradeSlot | null {
+function slotFromBrief(card: TcgSetCard, setId: string, official: number, promo: boolean): TradeSlot | null {
   if (!card.id || !card.name || card.localId === undefined) return null;
   const localId = String(card.localId);
   return {
@@ -75,7 +75,7 @@ function slotFromBrief(card: TcgSetCard, official: number, promo: boolean): Trad
     name: card.name,
     localId,
     number: printedNumber(localId, official, promo),
-    imageUrl: catalogImageUrl(card.image, "low"),
+    imageUrl: catalogSlotImage(setId, card, "low"),
     quantity: 0,
   };
 }
@@ -290,7 +290,7 @@ export async function getTradeBoard(userId: string, id: string): Promise<TradeBo
   const official = catalog.cardCount?.official ?? tradeSet.official;
   const promo = isPromoSetBrief(catalog);
   const slots = (catalog.cards ?? [])
-    .map((card) => slotFromBrief(card, official, promo))
+    .map((card) => slotFromBrief(card, catalog.id!, official, promo))
     .filter((slot): slot is TradeSlot => Boolean(slot));
 
   const byTcg = new Map(tradeSet.entries.map((entry) => [entry.tcgId, entry.quantity]));
@@ -328,7 +328,7 @@ export async function setTradeQuantity(userId: string, tradeSetId: string, tcgId
   const official = catalog.cardCount?.official ?? tradeSet.official;
   const promo = isPromoSetBrief(catalog);
   const number = printedNumber(localId, official, promo);
-  const imageUrl = catalogImageUrl(card.image, "low");
+  const imageUrl = catalogSlotImage(catalog.id, card, "low");
 
   if (next <= 0) {
     await prisma.tradeEntry.deleteMany({ where: { tradeSetId, tcgId } });
@@ -410,7 +410,7 @@ export async function syncTradeExcessFromCard(
   const official = catalog.cardCount?.official ?? tradeSet.official;
   const promo = isPromoSetBrief(catalog);
   const number = printedNumber(String(match.localId), official, promo);
-  const imageUrl = catalogImageUrl(match.image, "low") ?? card.imageUrl;
+  const imageUrl = catalogSlotImage(catalog.id, match, "low") ?? card.imageUrl;
 
   if (excess <= 0) {
     await prisma.tradeEntry.deleteMany({ where: { tradeSetId: tradeSet.id, tcgId: match.id } });

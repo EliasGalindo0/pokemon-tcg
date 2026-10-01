@@ -2,7 +2,7 @@ import { AppError } from "@/lib/errors";
 import { localNumber, printedCardNumber } from "@/lib/card-number";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
-import { catalogImageUrl, catalogLogoUrl, fetchCatalogCard, fetchTcg } from "@/services/catalog";
+import { catalogLogoUrl, catalogSlotImage, fetchCatalogCard, fetchTcg } from "@/services/catalog";
 import { createCard, createCards, deleteCards } from "@/services/cards";
 import type { CardPayload } from "@/types/card";
 import type { AlbumSetOption, AlbumSlot, AlbumView } from "@/types/album";
@@ -41,7 +41,7 @@ function printedNumber(localId: string, official: number) {
   return printedCardNumber(localId, official);
 }
 
-function slotFromBrief(card: TcgSetCard, official: number): AlbumSlot | null {
+function slotFromBrief(card: TcgSetCard, setId: string, official: number): AlbumSlot | null {
   if (!card.id || !card.name || card.localId === undefined) return null;
   const localId = String(card.localId);
   return {
@@ -49,7 +49,7 @@ function slotFromBrief(card: TcgSetCard, official: number): AlbumSlot | null {
     name: card.name,
     localId,
     number: printedNumber(localId, official),
-    imageUrl: catalogImageUrl(card.image, "low"),
+    imageUrl: catalogSlotImage(setId, card, "low"),
     owned: false,
     ownedIds: [],
     quantity: 0,
@@ -91,7 +91,7 @@ export async function getAlbum(
   const set = await loadSet(id, language);
   const official = set.cardCount?.official ?? 0;
   const slots = (set.cards ?? [])
-    .map((card) => slotFromBrief(card, official))
+    .map((card) => slotFromBrief(card, set.id!, official))
     .filter((slot): slot is AlbumSlot => Boolean(slot));
 
   const localSet = userId

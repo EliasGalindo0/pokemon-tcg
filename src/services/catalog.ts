@@ -50,6 +50,9 @@ type TcgCard = {
   };
   category?: string;
   variants?: { holo?: boolean };
+  variants_detailed?: Array<{
+    thirdParty?: { tcgplayer?: number; cardmarket?: number };
+  }>;
   pricing?: {
     tcgplayer?: Record<string, TcgPrice | string | number | undefined>;
     cardmarket?: { trend?: number };
@@ -83,6 +86,42 @@ export function catalogLogoUrl(base: string | undefined) {
 
 function imageUrl(base: string | undefined, quality: "low" | "high") {
   return catalogImageUrl(base, quality);
+}
+
+/** TCGdex still missing art for some promo series (e.g. MEP). */
+export function limitlessImageUrl(setId: string, localId: string | number) {
+  const set = setId.trim().toUpperCase();
+  const num = String(localId).trim();
+  if (!set || !num) return null;
+  return `https://limitlesstcg.nyc3.digitaloceanspaces.com/tpci/${set}/${set}_${num}_R_EN_LG.png`;
+}
+
+function tcgPlayerImageUrl(productId: number) {
+  return `https://product-images.tcgplayer.com/fit-in/400x558/${productId}.jpg`;
+}
+
+function fallbackCardArt(card: TcgCard): string | null {
+  const productId = card.variants_detailed?.find((v) => v.thirdParty?.tcgplayer)?.thirdParty?.tcgplayer;
+  if (typeof productId === "number" && productId > 0) return tcgPlayerImageUrl(productId);
+
+  const setId = card.set?.id ?? (card.id ? card.id.slice(0, card.id.lastIndexOf("-")) : "");
+  if (setId && card.localId !== undefined) return limitlessImageUrl(setId, card.localId);
+  return null;
+}
+
+function resolveCardArt(card: TcgCard, quality: "low" | "high") {
+  return imageUrl(card.image, quality) ?? fallbackCardArt(card);
+}
+
+/** Image for set-board slots (album/trades) when TCGdex omits `image`. */
+export function catalogSlotImage(
+  setId: string | undefined,
+  card: { localId?: string | number; image?: string },
+  quality: "low" | "high" = "low",
+) {
+  return imageUrl(card.image, quality) ?? (setId && card.localId !== undefined
+    ? limitlessImageUrl(setId, card.localId)
+    : null);
 }
 
 function mapRarity(rarity: string | undefined, holo: boolean): RarityValue {
@@ -166,8 +205,8 @@ function toHit(card: TcgCard, language: LanguageValue): CatalogHit | null {
     cardNumber: printedCardNumber(localId, promo && official > 0 ? 0 : official),
     rarity: mapRarity(card.rarity, Boolean(card.variants?.holo)),
     language,
-    imageUrl: imageUrl(card.image, "high"),
-    thumbUrl: imageUrl(card.image, "low"),
+    imageUrl: resolveCardArt(card, "high"),
+    thumbUrl: resolveCardArt(card, "low"),
     marketValue: quote?.amount ?? null,
     priceCurrency: quote?.currency ?? null,
     sourceAmount: null,
@@ -342,7 +381,7 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
   if (!parsed && (!nameFilter || nameFilter.length < 2)) return { items: [], language: "EN" };
 
   const language = isOneOf(LANGUAGES, languageInput) ? languageInput : "EN";
-  const cacheKey = `catalog:v8:${language}:${raw.toLowerCase()}`;
+  const cacheKey = `catalog:v9:${language}:${raw.toLowerCase()}`;
   const cached = await cacheGet<CatalogSearchResult>(cacheKey);
   if (cached) return cached;
 
@@ -436,7 +475,9 @@ async function imageIndexForSet(setName: string, language: LanguageValue) {
     const detail = (await detailResponse.json()) as { cards?: TcgSetCard[] };
     const byNumber = new Map<string, string>();
     for (const card of detail.cards ?? []) {
-      const url = imageUrl(card.image, "high");
+      const url = imageUrl(card.image, "high") ?? (match.id && card.localId !== undefined
+        ? limitlessImageUrl(match.id, card.localId)
+        : null);
       const number = localNumber(card.localId);
       if (url && number) byNumber.set(number, url);
     }
@@ -470,7 +511,12 @@ async function writeMissingImages(userId?: string) {
       index = await imageIndexForSet(card.set.name, card.language);
       indexes.set(key, index);
     }
-    const url = index.get(localNumber(card.cardNumber));
+    let url = index.get(localNumber(card.cardNumber)) ?? null;
+    if (!url) {
+      const local = (card.cardNumber ?? "").split("/")[0]?.trim() ?? "";
+      const setCode = card.set.code?.trim();
+      if (setCode && local) url = limitlessImageUrl(setCode, local);
+    }
     if (!url) continue;
     await prisma.card.update({ where: { id: card.id }, data: { imageUrl: url } });
     updated += 1;
