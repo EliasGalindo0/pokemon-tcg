@@ -75,7 +75,7 @@ export function MyCollectionTabs({
             onClick={() => goTab(TAB_PROMOS)}
             className={tabClass(isPromos)}
           >
-            Promoções
+            Promo
             {promoCards.length > 0 ? (
               <span className="ml-1.5 text-xs opacity-70">· {promoCards.length}</span>
             ) : null}
@@ -108,7 +108,7 @@ export function MyCollectionTabs({
         <section className="rounded-3xl border border-dashed border-line bg-card/70 px-6 py-16 text-center">
           <h2 className="font-display text-3xl">Nenhuma coleção de set ainda</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Use as abas Promoções e Jogador, ou{" "}
+            Use as abas Promo e Jogador, ou{" "}
             {canAddSets ? "busque uma coleção no catálogo." : "aguarde cartas de sets."}
           </p>
           {canAddSets ? (

@@ -11,12 +11,18 @@ import { requireUserPage } from "@/lib/auth-page";
 import { isAdmin } from "@/lib/auth";
 import { AppError } from "@/lib/errors";
 import { NAV_COLLECTIONS, PAGE_MY_COLLECTION } from "@/lib/site-copy";
+import { isPromoSetBrief } from "@/lib/card-number";
 import { albumLanguage, getAlbum } from "@/services/album";
 import { listPromoCards } from "@/services/cards";
 import { listPlayerCards } from "@/services/player-cards";
 import { listSets } from "@/services/sets";
 import type { AlbumView } from "@/types/album";
+import type { SetDTO } from "@/types/card";
 import { isSpecialCollectionTab, TAB_PROMOS } from "@/types/player-card";
+
+function isPromoCollectionSet(set: SetDTO) {
+  return isPromoSetBrief({ id: set.code ?? undefined, name: set.name });
+}
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
@@ -82,18 +88,22 @@ export default async function MyCollectionPage({
     notFound();
   }
 
-  const [sets, promoCards, playerCards] = await Promise.all([
+  const [allSets, promoCards, playerCards] = await Promise.all([
     listSets(user.id),
     listPromoCards(user.id),
     listPlayerCards(user.id),
   ]);
+  const sets = allSets.filter((set) => !isPromoCollectionSet(set));
 
   const tab = raw.tab;
+  const tabIsPromoSet = Boolean(tab && allSets.some((set) => set.id === tab && isPromoCollectionSet(set)));
   const activeId = isSpecialCollectionTab(tab)
     ? tab
-    : tab && sets.some((set) => set.id === tab)
-      ? tab
-      : (sets[0]?.id ?? TAB_PROMOS);
+    : tabIsPromoSet
+      ? TAB_PROMOS
+      : tab && sets.some((set) => set.id === tab)
+        ? tab
+        : (sets[0]?.id ?? TAB_PROMOS);
 
   const activeSet = !isSpecialCollectionTab(activeId)
     ? (sets.find((set) => set.id === activeId) ?? null)
@@ -108,7 +118,7 @@ export default async function MyCollectionPage({
     }
   }
 
-  const publicCount = sets.filter((set) => set.isPublic).length;
+  const publicCount = allSets.filter((set) => set.isPublic).length;
   const showSearch = admin && raw.buscar === "1";
 
   return (
@@ -116,7 +126,7 @@ export default async function MyCollectionPage({
       <PageHeader
         kicker="Suas cartas"
         title={PAGE_MY_COLLECTION}
-        description="Sets, promoções e cartas de jogador em abas. O que for público aparece em Coleções."
+        description="Sets, Promos e cartas de jogador em abas. O que for público aparece em Coleções."
       >
         {admin ? (
           <div className="flex flex-wrap gap-2">
