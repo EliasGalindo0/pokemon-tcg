@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/errors";
-import { localNumber, printedCardNumber } from "@/lib/card-number";
+import { isPromoSetBrief, localNumber, printedCardNumber } from "@/lib/card-number";
 import { isOneOf, LANGUAGES, type LanguageValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { catalogLogoUrl, catalogSlotImage, fetchCatalogCard, fetchTcg } from "@/services/catalog";
@@ -37,18 +37,18 @@ function assertSetId(setId: string) {
   return id;
 }
 
-function printedNumber(localId: string, official: number) {
-  return printedCardNumber(localId, official);
+function printedNumber(localId: string, official: number, promo = false) {
+  return printedCardNumber(localId, promo ? 0 : official);
 }
 
-function slotFromBrief(card: TcgSetCard, setId: string, official: number): AlbumSlot | null {
+function slotFromBrief(card: TcgSetCard, setId: string, official: number, promo: boolean): AlbumSlot | null {
   if (!card.id || !card.name || card.localId === undefined) return null;
   const localId = String(card.localId);
   return {
     tcgId: card.id,
     name: card.name,
     localId,
-    number: printedNumber(localId, official),
+    number: printedNumber(localId, official, promo),
     imageUrl: catalogSlotImage(setId, card, "low"),
     owned: false,
     ownedIds: [],
@@ -90,8 +90,9 @@ export async function getAlbum(
   const id = assertSetId(setId);
   const set = await loadSet(id, language);
   const official = set.cardCount?.official ?? 0;
+  const promo = isPromoSetBrief(set);
   const slots = (set.cards ?? [])
-    .map((card) => slotFromBrief(card, set.id!, official))
+    .map((card) => slotFromBrief(card, set.id!, official, promo))
     .filter((slot): slot is AlbumSlot => Boolean(slot));
 
   const localSet = userId

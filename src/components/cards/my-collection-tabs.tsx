@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import { AlbumBoard } from "@/components/album/album-board";
 import { CatalogImg } from "@/components/cards/catalog-img";
 import { PlayerCardsPanel } from "@/components/cards/player-cards-panel";
-import { PromoCollectionPanel } from "@/components/cards/promo-collection-panel";
+import { PromoCollectionPanel, type PromoSeriesOption } from "@/components/cards/promo-collection-panel";
 import { ButtonLink } from "@/components/ui/button";
 import { formatMoney } from "@/lib/format";
 import type { AlbumView } from "@/types/album";
-import type { CardDTO, SetDTO } from "@/types/card";
+import type { SetDTO } from "@/types/card";
 import type { PlayerCardDTO } from "@/types/player-card";
 import { TAB_PLAYER, TAB_PROMOS } from "@/types/player-card";
 
@@ -20,7 +20,10 @@ export function MyCollectionTabs({
   language,
   canAddSets,
   showSearchLink = false,
-  promoCards,
+  promoAlbum,
+  promoSeries,
+  activePromoId,
+  promoOwnedCount,
   playerCards,
 }: {
   sets: SetDTO[];
@@ -29,7 +32,10 @@ export function MyCollectionTabs({
   language: string;
   canAddSets: boolean;
   showSearchLink?: boolean;
-  promoCards: CardDTO[];
+  promoAlbum: AlbumView | null;
+  promoSeries: PromoSeriesOption[];
+  activePromoId: string | null;
+  promoOwnedCount: number;
   playerCards: PlayerCardDTO[];
 }) {
   const router = useRouter();
@@ -37,7 +43,11 @@ export function MyCollectionTabs({
   const isPlayer = activeId === TAB_PLAYER;
 
   function goTab(tab: string) {
-    router.push(`/cards?tab=${tab}&language=${language}`);
+    const href =
+      tab === TAB_PROMOS && activePromoId
+        ? `/cards?tab=${TAB_PROMOS}&promo=${activePromoId}&language=${language}`
+        : `/cards?tab=${tab}&language=${language}`;
+    router.push(href);
   }
 
   const tabClass = (selected: boolean) =>
@@ -76,8 +86,8 @@ export function MyCollectionTabs({
             className={tabClass(isPromos)}
           >
             Promo
-            {promoCards.length > 0 ? (
-              <span className="ml-1.5 text-xs opacity-70">· {promoCards.length}</span>
+            {promoOwnedCount > 0 ? (
+              <span className="ml-1.5 text-xs opacity-70">· {promoOwnedCount}</span>
             ) : null}
           </button>
           <button
@@ -101,7 +111,12 @@ export function MyCollectionTabs({
       </div>
 
       {isPromos ? (
-        <PromoCollectionPanel cards={promoCards} language={language} canAdd={canAddSets} />
+        <PromoCollectionPanel
+          album={promoAlbum}
+          series={promoSeries}
+          activeSeriesId={activePromoId}
+          language={language}
+        />
       ) : isPlayer ? (
         <PlayerCardsPanel cards={playerCards} language={language} />
       ) : sets.length === 0 ? (

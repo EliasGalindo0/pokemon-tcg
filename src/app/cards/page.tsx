@@ -5,13 +5,15 @@ import { AlbumBoard } from "@/components/album/album-board";
 import { CollectionCatalogSearch } from "@/components/cards/collection-catalog-search";
 import { CatalogImg } from "@/components/cards/catalog-img";
 import { MyCollectionTabs } from "@/components/cards/my-collection-tabs";
+import type { PromoSeriesOption } from "@/components/cards/promo-collection-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { requireUserPage } from "@/lib/auth-page";
 import { isAdmin } from "@/lib/auth";
-import { AppError } from "@/lib/errors";
-import { NAV_COLLECTIONS, PAGE_MY_COLLECTION } from "@/lib/site-copy";
 import { isPromoSetBrief } from "@/lib/card-number";
+import { AppError } from "@/lib/errors";
+import { defaultPromoSeries } from "@/lib/promo-series";
+import { NAV_COLLECTIONS, PAGE_MY_COLLECTION } from "@/lib/site-copy";
 import { albumLanguage, getAlbum } from "@/services/album";
 import { listPromoCards } from "@/services/cards";
 import { listPlayerCards } from "@/services/player-cards";
@@ -40,6 +42,7 @@ export default async function MyCollectionPage({
     buscar?: string;
     q?: string;
     catalog?: string;
+    promo?: string;
   }>;
 }) {
   const user = await requireUserPage("/cards");
@@ -93,6 +96,7 @@ export default async function MyCollectionPage({
     listPromoCards(user.id),
     listPlayerCards(user.id),
   ]);
+  const promoLocalSets = allSets.filter(isPromoCollectionSet);
   const sets = allSets.filter((set) => !isPromoCollectionSet(set));
 
   const tab = raw.tab;
@@ -116,6 +120,52 @@ export default async function MyCollectionPage({
     } catch {
       album = null;
     }
+  }
+
+  const defaults = defaultPromoSeries();
+  const seriesMap = new Map<string, PromoSeriesOption>();
+  for (const item of defaults) {
+    seriesMap.set(item.id, { id: item.id, name: item.name });
+  }
+  for (const set of promoLocalSets) {
+    if (!set.code) continue;
+    const key = set.code.toLowerCase();
+    seriesMap.set(key, {
+      id: key,
+      name: set.name,
+      ownedSlots: set.cardCount,
+    });
+  }
+
+  const promoSeries = [...seriesMap.values()];
+  const requestedPromo = raw.promo?.trim().toLowerCase();
+  const activePromoId =
+    requestedPromo && seriesMap.has(requestedPromo)
+      ? requestedPromo
+      : promoLocalSets[0]?.code?.toLowerCase() ??
+        defaults[0]?.id ??
+        null;
+
+  let promoAlbum: AlbumView | null = null;
+  if (activeId === TAB_PROMOS && activePromoId) {
+    try {
+      promoAlbum = await getAlbum(user.id, activePromoId, language);
+      const option = seriesMap.get(activePromoId);
+      if (option) {
+        option.ownedSlots = promoAlbum.ownedSlots;
+        option.total = promoAlbum.total;
+        option.name = promoAlbum.name;
+      }
+    } catch {
+      promoAlbum = null;
+    }
+  }
+
+  // Enrich series counts from lightweight owned totals where album not loaded
+  for (const option of promoSeries) {
+    if (option.total != null) continue;
+    const local = promoLocalSets.find((set) => set.code?.toLowerCase() === option.id);
+    if (local) option.ownedSlots = local.cardCount ?? 0;
   }
 
   const publicCount = allSets.filter((set) => set.isPublic).length;
@@ -175,7 +225,10 @@ export default async function MyCollectionPage({
         language={language}
         canAddSets={admin}
         showSearchLink={admin && !showSearch}
-        promoCards={promoCards}
+        promoAlbum={promoAlbum}
+        promoSeries={promoSeries}
+        activePromoId={activePromoId}
+        promoOwnedCount={promoCards.length}
         playerCards={playerCards}
       />
     </div>
