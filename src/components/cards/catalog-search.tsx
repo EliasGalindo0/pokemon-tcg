@@ -73,13 +73,13 @@ export function CatalogSearch({
               setStatus("idle");
             }
           }}
-          placeholder="Nome ou número, ex.: Lucario, 095/∞ ou 094/094"
+          placeholder="Nome e/ou número, ex.: Slowpoke 086/∞"
           className={controlClass}
           autoComplete="off"
         />
       </label>
       <p className="mt-2 text-xs text-muted">
-        Promos usam infinito (095/∞). O segundo número da coleção mantém zeros (094/094).
+        Promos da Megaevolução e Black Star usam infinito (086/∞). Dá para buscar só o número ou nome + número.
       </p>
 
       {visible && status === "loading" ? <p className="mt-3 text-sm text-muted">Buscando cartas…</p> : null}

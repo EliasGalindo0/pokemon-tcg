@@ -3,7 +3,7 @@ import {
   isPromoSetBrief,
   localIdSearchVariants,
   localNumber,
-  parseCardNumber,
+  parseSearchQuery,
   printedCardNumber,
 } from "@/lib/card-number";
 import { AppError } from "@/lib/errors";
@@ -229,7 +229,7 @@ async function searchPromoIdsByLocalKey(path: string, localKey: string) {
   if (!Array.isArray(sets)) return [];
 
   const promos = sets.filter((set) => Boolean(set.id && set.name) && isPromoSetBrief(set));
-  const priority = ["svp", "swshp", "smp", "bwp", "xyop", "xyp", "dpp", "np", "hsp", "p-a"];
+  const priority = ["mep", "svp", "swshp", "smp", "bwp", "xyop", "xyp", "dpp", "np", "hsp", "p-a", "basep"];
   promos.sort((a, b) => {
     const ai = priority.indexOf((a.id ?? "").toLowerCase());
     const bi = priority.indexOf((b.id ?? "").toLowerCase());
@@ -253,13 +253,15 @@ async function searchPromoIdsByLocalKey(path: string, localKey: string) {
 }
 
 async function searchIds(path: string, query: string) {
-  const parsed = parseCardNumber(query);
+  const { name, number: parsed } = parseSearchQuery(query);
+
   if (!parsed) {
-    const url = `${BASE_URL}/${path}/cards?name=${encodeURIComponent(query)}&pagination:page=1&pagination:itemsPerPage=12`;
+    if (!name || name.length < 2) return [];
+    const url = `${BASE_URL}/${path}/cards?name=${encodeURIComponent(name)}&pagination:page=1&pagination:itemsPerPage=40`;
     const response = await fetch(url, { headers: { accept: "application/json" }, cache: "no-store" });
     const data = await readJson<TcgBrief[]>(response);
     if (!Array.isArray(data)) return [];
-    return data.map((item) => item.id).filter((id): id is string => Boolean(id));
+    return data.map((item) => item.id).filter((id): id is string => Boolean(id)).slice(0, 24);
   }
 
   if (parsed.infinite) {
@@ -270,11 +272,19 @@ async function searchIds(path: string, query: string) {
       for (const id of ids) {
         if (isPromoCardId(id) && !gathered.includes(id)) gathered.push(id);
       }
-      if (gathered.length >= 12) break;
+      if (gathered.length >= 24) break;
     }
-    if (gathered.length > 0) return gathered.slice(0, 12);
-
-    return searchPromoIdsByLocalKey(path, parsed.localKey);
+    if (gathered.length === 0) {
+      const scanned = await searchPromoIdsByLocalKey(path, parsed.localKey);
+      gathered.push(...scanned);
+    }
+    // Prefer MEP / recent promo series first
+    gathered.sort((a, b) => Number(isPromoCardId(b)) - Number(isPromoCardId(a)));
+    const mepFirst = [
+      ...gathered.filter((id) => id.toLowerCase().startsWith("mep-")),
+      ...gathered.filter((id) => !id.toLowerCase().startsWith("mep-")),
+    ];
+    return [...new Set(mepFirst)].slice(0, 24);
   }
 
   const variants = localIdSearchVariants(parsed.localId);
@@ -327,22 +337,22 @@ async function loadCard(path: string, id: string) {
 }
 
 export async function searchCatalog(query: string, languageInput?: string): Promise<CatalogSearchResult> {
-  const name = query.trim();
-  const parsed = parseCardNumber(name);
-  if (!parsed && name.length < 2) return { items: [], language: "EN" };
+  const raw = query.trim();
+  const { name: nameFilter, number: parsed } = parseSearchQuery(raw);
+  if (!parsed && (!nameFilter || nameFilter.length < 2)) return { items: [], language: "EN" };
 
   const language = isOneOf(LANGUAGES, languageInput) ? languageInput : "EN";
-  const cacheKey = `catalog:v7:${language}:${name.toLowerCase()}`;
+  const cacheKey = `catalog:v8:${language}:${raw.toLowerCase()}`;
   const cached = await cacheGet<CatalogSearchResult>(cacheKey);
   if (cached) return cached;
 
   let path = LANGUAGE_PATH[language];
-  let ids = await searchIds(path, name);
+  let ids = await searchIds(path, raw);
   let resultLanguage = language;
 
-  // Promos often incomplete in PT — try English when ∞ search is empty or thin.
+  // Promos / MEP often incomplete in PT — prefer English when ∞ search is empty or thin.
   if ((ids.length === 0 || (parsed?.infinite && ids.length < 3)) && path !== "en") {
-    const enIds = await searchIds("en", name);
+    const enIds = await searchIds("en", raw);
     if (enIds.length > ids.length) {
       path = "en";
       ids = enIds;
@@ -365,14 +375,13 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
   ).filter((card): card is CatalogHit => card !== null);
 
   if (parsed?.infinite) {
-    const promos = hits.filter(
+    hits = hits.filter(
       (hit) =>
         hit.cardNumber.includes("∞") ||
         hit.rarity === "PROMO" ||
         isPromoCardId(hit.id) ||
         isPromoSetBrief({ id: hit.setCode, name: hit.setName }),
     );
-    hits = promos.length > 0 ? promos : [];
   } else if (parsed?.official != null) {
     const wanted = printedCardNumber(parsed.localId, parsed.official).split("/")[1];
     const filtered = hits.filter((hit) => {
@@ -382,7 +391,19 @@ export async function searchCatalog(query: string, languageInput?: string): Prom
     if (filtered.length > 0) hits = filtered;
   }
 
-  hits.sort((a, b) => Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl)));
+  if (nameFilter) {
+    const needle = nameFilter.toLowerCase();
+    const named = hits.filter(
+      (hit) => hit.name.toLowerCase().includes(needle) || hit.setName.toLowerCase().includes(needle),
+    );
+    if (named.length > 0) hits = named;
+  }
+
+  hits.sort((a, b) => {
+    const aMep = a.id.toLowerCase().startsWith("mep-") ? 1 : 0;
+    const bMep = b.id.toLowerCase().startsWith("mep-") ? 1 : 0;
+    return bMep - aMep || Number(Boolean(b.imageUrl)) - Number(Boolean(a.imageUrl));
+  });
 
   const items = await Promise.all(hits.slice(0, 12).map((hit) => priceInBrl(hit)));
 

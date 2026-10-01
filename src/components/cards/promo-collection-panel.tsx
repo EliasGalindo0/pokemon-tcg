@@ -27,8 +27,9 @@ export function PromoCollectionPanel({
       <div>
         <h2 className="font-display text-3xl tracking-tight">Promoções</h2>
         <p className="mt-1 text-sm text-muted">
-          Cartas promocionais da sua coleção (raridade promo ou sets Black Star / promo). Busque com{" "}
-          <span className="font-medium text-ink">095/∞</span>.
+          Cartas promocionais (MEP, Black Star, etc.). Busque com{" "}
+          <span className="font-medium text-ink">086/∞</span> ou{" "}
+          <span className="font-medium text-ink">Slowpoke 086/∞</span>.
         </p>
       </div>
 

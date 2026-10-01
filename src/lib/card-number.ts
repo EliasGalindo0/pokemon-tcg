@@ -9,11 +9,19 @@ export type ParsedCardNumber = {
   infinite: boolean;
 };
 
+export type ParsedSearchQuery = {
+  /** Optional Pokémon / card name fragment. */
+  name: string | null;
+  number: ParsedCardNumber | null;
+};
+
 const INFINITE = /^(?:#)?(\d{1,4})\s*\/\s*(?:∞|inf(?:inity)?|\*|oo)$/i;
 const FRACTION = /^(?:#)?(\d{1,4})\s*\/\s*(\d{1,4})$/;
 const LOCAL_ONLY = /^(?:#)?(\d{1,4})$/;
 /** Alphanumeric promo ids e.g. SWSH001, SM152 */
 const PROMO_CODE = /^(?:#)?([A-Za-z]{1,6}\d{1,4}[A-Za-z]?)$/;
+const NUMBER_TOKEN =
+  "(?:#)?\\d{1,4}\\s*\\/\\s*(?:∞|inf(?:inity)?|\\*|oo|\\d{1,4})|(?:#)?[A-Za-z]{1,6}\\d{1,4}[A-Za-z]?|(?:#)?\\d{1,4}";
 
 function stripZeros(value: string) {
   return value.replace(/^0+(?=\d)/, "") || value;
@@ -101,6 +109,28 @@ export function parseCardNumber(input: string): ParsedCardNumber | null {
   return null;
 }
 
+/** Split "Slowpoke 086/∞" or "086/∞ Slowpoke" into name + number. */
+export function parseSearchQuery(input: string): ParsedSearchQuery {
+  const trimmed = input.trim();
+  if (!trimmed) return { name: null, number: null };
+
+  const trailing = trimmed.match(new RegExp(`^(.+?)\\s+(${NUMBER_TOKEN})$`, "i"));
+  if (trailing?.[1]?.trim()) {
+    const number = parseCardNumber(trailing[2]);
+    if (number) return { name: trailing[1].trim(), number };
+  }
+
+  const leading = trimmed.match(new RegExp(`^(${NUMBER_TOKEN})\\s+(.+)$`, "i"));
+  if (leading?.[2]?.trim()) {
+    const number = parseCardNumber(leading[1]);
+    if (number) return { name: leading[2].trim(), number };
+  }
+
+  const number = parseCardNumber(trimmed);
+  if (number) return { name: null, number };
+  return { name: trimmed, number: null };
+}
+
 /** Variants to try against TCGdex `localId=` (padding matters). */
 export function localIdSearchVariants(localId: string): string[] {
   const raw = localId.trim();
@@ -115,24 +145,27 @@ export function localIdSearchVariants(localId: string): string[] {
   return [...variants];
 }
 
+const KNOWN_PROMO_SET_IDS =
+  /^(svp|swshp|smp|bwp|xyop|xyp|dpp|np|mcd\d*|hsp|fut\d*|pr-[a-z0-9]+|p-a|tg|rc|det1|si[0-9]|cel25c?|mep|basep|hgssp|wp|miscp|mee)$/i;
+
 export function isPromoSetBrief(set: {
   id?: string;
   name?: string;
   cardCount?: { official?: number; total?: number };
 }) {
-  const official = set.cardCount?.official ?? 0;
-  if (official === 0) return true;
   const name = (set.name ?? "").toLowerCase();
   const id = (set.id ?? "").toLowerCase();
   if (name.includes("promo") || name.includes("black star")) return true;
   if (id.includes("promo")) return true;
-  // Common TCGdex promo set ids (SVP, SWSHP, SMP, McDonald's, etc.)
-  return /^(svp|swshp|smp|bwp|xyop|xyp|dpp|np|mcd\d*|hsp|fut\d*|pr-[a-z0-9]+|p-a|tg|rc|det1|si[0-9]|cel25c?)$/i.test(
-    id,
-  );
+  if (KNOWN_PROMO_SET_IDS.test(id)) return true;
+  // Short ids ending in "p" (svp, mep, smp…) — not regular sets like me01
+  if (/^[a-z]{1,5}p$/i.test(id)) return true;
+  // official === 0 only when cardCount was provided (avoid treating missing data as promo)
+  if (set.cardCount != null && (set.cardCount.official ?? 0) === 0) return true;
+  return false;
 }
 
-/** True when a catalog card id belongs to a promo set (e.g. svp-086). */
+/** True when a catalog card id belongs to a promo set (e.g. mep-086, svp-095). */
 export function isPromoCardId(cardId: string) {
   const index = cardId.lastIndexOf("-");
   const setId = index > 0 ? cardId.slice(0, index) : cardId;
@@ -141,11 +174,7 @@ export function isPromoCardId(cardId: string) {
 
 /** Client-side: treat as card-number query (triggers search with 1+ chars). */
 export function looksLikeCardNumberQuery(value: string) {
-  const trimmed = value.trim();
-  return (
-    INFINITE.test(trimmed) ||
-    FRACTION.test(trimmed) ||
-    LOCAL_ONLY.test(trimmed) ||
-    PROMO_CODE.test(trimmed)
-  );
+  const { name, number } = parseSearchQuery(value);
+  if (number) return true;
+  return (name?.length ?? 0) >= 2;
 }
