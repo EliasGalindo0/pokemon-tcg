@@ -126,7 +126,17 @@ export function isPromoSetBrief(set: {
   const id = (set.id ?? "").toLowerCase();
   if (name.includes("promo") || name.includes("black star")) return true;
   if (id.includes("promo")) return true;
-  return /^(svp|swshp|smp|bwp|xyop|xyp|dpp|np|mcd\d*|hsp|pr-[a-z0-9]+|p-a)$/i.test(id);
+  // Common TCGdex promo set ids (SVP, SWSHP, SMP, McDonald's, etc.)
+  return /^(svp|swshp|smp|bwp|xyop|xyp|dpp|np|mcd\d*|hsp|fut\d*|pr-[a-z0-9]+|p-a|tg|rc|det1|si[0-9]|cel25c?)$/i.test(
+    id,
+  );
+}
+
+/** True when a catalog card id belongs to a promo set (e.g. svp-086). */
+export function isPromoCardId(cardId: string) {
+  const index = cardId.lastIndexOf("-");
+  const setId = index > 0 ? cardId.slice(0, index) : cardId;
+  return isPromoSetBrief({ id: setId });
 }
 
 /** Client-side: treat as card-number query (triggers search with 1+ chars). */
