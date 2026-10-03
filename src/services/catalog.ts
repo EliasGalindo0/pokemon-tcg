@@ -49,6 +49,7 @@ type TcgCard = {
     cardCount?: { official?: number };
   };
   category?: string;
+  trainerType?: string;
   variants?: { holo?: boolean };
   variants_detailed?: Array<{
     thirdParty?: { tcgplayer?: number; cardmarket?: number };
@@ -211,6 +212,8 @@ function toHit(card: TcgCard, language: LanguageValue): CatalogHit | null {
     priceCurrency: quote?.currency ?? null,
     sourceAmount: null,
     sourceCurrency: null,
+    category: card.category ?? null,
+    trainerType: card.trainerType ?? null,
   };
 }
 

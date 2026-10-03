@@ -1,4 +1,5 @@
 import { AppError } from "@/lib/errors";
+import { deckEntriesToListLines, formatDeckList } from "@/lib/deck-list";
 import { DECK_FORMATS, isOneOf, type DeckFormatValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
@@ -292,4 +293,30 @@ export async function setDeckCatalogQuantity(userId: string, deckId: string, tcg
 
 export async function countDecks(userId: string) {
   return prisma.deck.count({ where: { userId } });
+}
+
+export async function buildDeckListText(userId: string, deckId: string) {
+  const deck = await getDeck(userId, deckId);
+  if (!deck) throw new AppError("Deck não encontrado.", 404);
+
+  const enriched = await Promise.all(
+    deck.entries.map(async (entry) => {
+      let category: string | null = null;
+      let trainerType: string | null = null;
+      if (entry.tcgId) {
+        const hit =
+          (await fetchCatalogCard("PT_BR", entry.tcgId)) ?? (await fetchCatalogCard("EN", entry.tcgId));
+        category = hit?.category ?? null;
+        trainerType = hit?.trainerType ?? null;
+      }
+      return {
+        name: entry.name,
+        quantity: entry.quantity,
+        category,
+        trainerType,
+      };
+    }),
+  );
+
+  return formatDeckList(deck.name, deckEntriesToListLines(enriched));
 }

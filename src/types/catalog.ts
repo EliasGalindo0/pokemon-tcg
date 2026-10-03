@@ -14,6 +14,8 @@ export type CatalogHit = {
   priceCurrency: "USD" | "EUR" | "BRL" | null;
   sourceAmount: string | null;
   sourceCurrency: "USD" | "EUR" | null;
+  category?: string | null;
+  trainerType?: string | null;
 };
 
 export type CatalogSearchResult = {

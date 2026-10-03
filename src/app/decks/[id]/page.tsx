@@ -3,6 +3,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteDeckAction, updateDeckAction } from "@/actions/decks";
 import { DeckBuilder } from "@/components/decks/deck-builder";
+import { DeckListExport } from "@/components/decks/deck-list-export";
 import { DeckTitleEditor } from "@/components/decks/deck-title-editor";
 import { DeleteCardButton } from "@/components/cards/delete-card-button";
 import { requireAdminPage } from "@/lib/auth-page";
@@ -61,6 +62,8 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <DeckBuilder deckId={deck.id} entries={deck.entries} coverEntryId={deck.coverEntryId} />
+
+      {deck.entries.length > 0 ? <DeckListExport deckId={deck.id} /> : null}
     </div>
   );
 }

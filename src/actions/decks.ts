@@ -7,6 +7,7 @@ import { requireAdmin } from "@/lib/auth";
 import { parseDeckPayload } from "@/lib/validators";
 import {
   addCatalogCardToDeck,
+  buildDeckListText,
   createDeck,
   deleteDeck,
   setDeckCardQuantity,
@@ -130,6 +131,18 @@ export async function setDeckCoverAction(deckId: string, entryId: string) {
   } catch (error) {
     unstable_rethrow(error);
     const message = error instanceof AppError ? error.message : "Não foi possível definir a capa.";
+    return { ok: false as const, message };
+  }
+}
+
+export async function getDeckListTextAction(deckId: string) {
+  try {
+    const user = await requireAdmin();
+    const text = await buildDeckListText(user.id, deckId);
+    return { ok: true as const, text };
+  } catch (error) {
+    unstable_rethrow(error);
+    const message = error instanceof AppError ? error.message : "Não foi possível gerar a lista.";
     return { ok: false as const, message };
   }
 }
