@@ -63,17 +63,20 @@ export function formatDeckList(
     grouped.get(line.section)?.push(line);
   }
 
-  const blocks: string[] = [`${deckName}`];
+  const blocks: string[] = [deckName, ""];
   for (const section of SECTION_ORDER) {
     const items = grouped.get(section) ?? [];
     if (items.length === 0) continue;
     const sorted = [...items].sort((a, b) => a.name.localeCompare(b.name, "pt"));
     const total = sorted.reduce((sum, item) => sum + item.quantity, 0);
-    const parts = sorted.map((item) => `${item.quantity} ${item.name}`).join(", ");
-    blocks.push(`${section} (${total}): ${parts}`);
+    blocks.push(`${section} (${total})`);
+    for (const item of sorted) {
+      blocks.push(`${item.quantity} ${item.name}`);
+    }
+    blocks.push("");
   }
 
-  return blocks.join("\n");
+  return blocks.join("\n").trimEnd();
 }
 
 export function deckEntriesToListLines(
