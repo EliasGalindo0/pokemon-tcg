@@ -5,10 +5,12 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { AppError } from "@/lib/errors";
 import { requireAdmin } from "@/lib/auth";
 import { parseDeckPayload } from "@/lib/validators";
+import { parseDeckListText } from "@/lib/deck-list-import";
 import {
   addCatalogCardToDeck,
   buildDeckListText,
   createDeck,
+  createDeckFromList,
   deleteDeck,
   setDeckCardQuantity,
   setDeckCatalogQuantity,
@@ -44,6 +46,47 @@ export async function createDeckAction(_prev: DeckActionState, formData: FormDat
   } catch (error) {
     unstable_rethrow(error);
     return { message: error instanceof AppError ? error.message : "Não foi possível criar o deck." };
+  }
+
+  invalidate();
+  redirect(`/decks/${id}`);
+}
+
+export async function createDeckFromListAction(
+  _prev: DeckActionState,
+  formData: FormData,
+): Promise<DeckActionState> {
+  let user;
+  try {
+    user = await requireAdmin();
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
+  }
+
+  const parsed = parseDeckPayload(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { fieldErrors: parsed.fieldErrors, message: "Revise os campos destacados." };
+
+  const decklist = String(formData.get("decklist") ?? "").trim();
+  if (!decklist) {
+    return { fieldErrors: { decklist: "Cole a lista do deck." }, message: "Revise os campos destacados." };
+  }
+
+  const { lines } = parseDeckListText(decklist);
+  if (lines.length === 0) {
+    return {
+      fieldErrors: { decklist: "Nenhuma carta reconhecida na lista." },
+      message: "Revise o texto da decklist.",
+    };
+  }
+
+  let id = "";
+  try {
+    const { deck } = await createDeckFromList(user.id, parsed.data, lines);
+    id = deck.id;
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Não foi possível importar o deck." };
   }
 
   invalidate();

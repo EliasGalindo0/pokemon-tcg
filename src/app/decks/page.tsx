@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DeckImportForm } from "@/components/decks/deck-import-form";
 import { PageHeader } from "@/components/layout/page-header";
 import { ButtonLink } from "@/components/ui/button";
 import { requireAdminPage } from "@/lib/auth-page";
@@ -26,11 +27,13 @@ export default async function DecksPage() {
         <ButtonLink href="/decks/new">Novo deck</ButtonLink>
       </PageHeader>
 
+      <DeckImportForm layout="stack" />
+
       {decks.length === 0 ? (
         <section className="rounded-3xl border border-dashed border-line bg-card/80 px-6 py-16 text-center">
           <h2 className="font-display text-3xl">Nenhum deck por aqui</h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
-            Monte um baralho de {DECK_SIZE} cartas buscando no catálogo.
+            Monte um baralho de {DECK_SIZE} cartas importando uma lista ou buscando no catálogo.
           </p>
           <div className="mt-6">
             <ButtonLink href="/decks/new">Criar deck</ButtonLink>
