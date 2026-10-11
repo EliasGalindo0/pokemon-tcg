@@ -4,6 +4,12 @@ import { DECK_FORMATS, isOneOf, type DeckFormatValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
 import { fetchCatalogCard, findEnergyArtwork } from "@/services/catalog";
+import {
+  assertImportHasCards,
+  catalogHitDeckImage,
+  resolveDeckListLines,
+} from "@/services/deck-list-import";
+import type { ParsedDeckListLine } from "@/lib/deck-list-import";
 import type { CatalogHit } from "@/types/catalog";
 import type { DeckDetail, DeckEntryDTO, DeckPayload, DeckSummary } from "@/types/deck";
 
@@ -160,6 +166,67 @@ export async function createDeck(userId: string, input: DeckPayload) {
   });
   await bumpCacheVersion();
   return summary(deck);
+}
+
+async function upsertCatalogEntry(
+  userId: string,
+  deckId: string,
+  hit: CatalogHit,
+  quantity: number,
+) {
+  const owned = await matchingCollectionCard(userId, hit);
+  if (owned) {
+    await setDeckCardQuantity(userId, deckId, owned.id, quantity);
+    return;
+  }
+
+  const imageUrl = (await catalogHitDeckImage(hit)) ?? hit.imageUrl;
+  await prisma.deckEntry.upsert({
+    where: { deckId_tcgId: { deckId, tcgId: hit.id } },
+    create: {
+      deckId,
+      tcgId: hit.id,
+      quantity,
+      name: hit.name,
+      setName: hit.setName,
+      cardNumber: hit.cardNumber,
+      imageUrl,
+    },
+    update: { quantity, imageUrl: imageUrl ?? undefined },
+  });
+}
+
+export async function createDeckFromList(
+  userId: string,
+  input: DeckPayload,
+  lines: ParsedDeckListLine[],
+) {
+  const resolved = await resolveDeckListLines(lines);
+  assertImportHasCards(resolved);
+
+  const deck = await prisma.deck.create({
+    data: { userId, name: input.name, format: input.format },
+  });
+
+  const totals = new Map<string, { hit: CatalogHit; quantity: number }>();
+  for (const row of resolved) {
+    if (!row.hit) continue;
+    const prev = totals.get(row.hit.id);
+    if (prev) {
+      prev.quantity += row.line.quantity;
+    } else {
+      totals.set(row.hit.id, { hit: row.hit, quantity: row.line.quantity });
+    }
+  }
+
+  for (const { hit, quantity } of totals.values()) {
+    await upsertCatalogEntry(userId, deck.id, hit, quantity);
+  }
+
+  await bumpCacheVersion();
+  const detail = await getDeck(userId, deck.id);
+  if (!detail) throw new AppError("Deck não encontrado.", 500);
+  return { deck: detail, resolved };
 }
 
 export async function updateDeck(userId: string, id: string, input: DeckPayload) {
