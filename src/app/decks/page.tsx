@@ -23,7 +23,12 @@ export default async function DecksPage() {
         title="Decks"
         description="Monte os baralhos que você joga. As cartas do deck são independentes da coleção."
       >
-        <ButtonLink href="/decks/new">Novo deck</ButtonLink>
+        <div className="flex flex-wrap gap-2">
+          <ButtonLink href="/decks/import" variant="secondary">
+            Importar lista
+          </ButtonLink>
+          <ButtonLink href="/decks/new">Novo deck</ButtonLink>
+        </div>
       </PageHeader>
 
       {decks.length === 0 ? (
@@ -32,7 +37,10 @@ export default async function DecksPage() {
           <p className="mx-auto mt-2 max-w-md text-sm text-muted">
             Monte um baralho de {DECK_SIZE} cartas buscando no catálogo.
           </p>
-          <div className="mt-6">
+          <div className="mt-6 flex flex-wrap justify-center gap-2">
+            <ButtonLink href="/decks/import" variant="secondary">
+              Importar lista
+            </ButtonLink>
             <ButtonLink href="/decks/new">Criar deck</ButtonLink>
           </div>
         </section>

@@ -23,8 +23,15 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
   }
 }
 
-export default async function DeckPage({ params }: { params: Promise<{ id: string }> }) {
+export default async function DeckPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ faltando?: string }>;
+}) {
   const { id } = await params;
+  const { faltando } = await searchParams;
   const user = await requireAdminPage(`/decks/${id}`);
   const deck = await getDeck(user.id, id);
   if (!deck) notFound();
@@ -60,6 +67,12 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
           confirm="Excluir este deck?"
         />
       </div>
+
+      {faltando ? (
+        <p className="rounded-3xl border border-ember/30 bg-ember/5 px-5 py-4 text-sm text-ember" role="status">
+          O deck foi criado, mas estas cartas da lista não foram encontradas no catálogo: {faltando}.
+        </p>
+      ) : null}
 
       <DeckBuilder deckId={deck.id} entries={deck.entries} coverEntryId={deck.coverEntryId} />
 

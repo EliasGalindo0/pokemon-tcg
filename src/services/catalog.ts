@@ -6,10 +6,12 @@ import {
   parseSearchQuery,
   printedCardNumber,
 } from "@/lib/card-number";
+import { cardNamesMatch, namesCompatible, type ParsedDeckListLine } from "@/lib/deck-list";
 import { AppError } from "@/lib/errors";
 import { isOneOf, LANGUAGES, type LanguageValue, type RarityValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion, cacheGet, cacheSet } from "@/lib/redis";
+import { tcgDexSetIdForCode } from "@/lib/tcg-set-codes";
 import { rateToBrl } from "@/services/exchange";
 import type { CatalogHit, CatalogSearchResult } from "@/types/catalog";
 
@@ -544,4 +546,137 @@ export async function fetchTcg<T>(language: LanguageValue, resource: string): Pr
     next: { revalidate: 3600 },
   });
   return readJson<T>(response);
+}
+
+type TcgSetImport = TcgSetBrief & {
+  cards?: { id?: string; localId?: string | number; name?: string; image?: string }[];
+};
+
+function setCardToHit(set: TcgSetImport, card: NonNullable<TcgSetImport["cards"]>[number], language: LanguageValue): CatalogHit | null {
+  if (!card.id || !card.name || !set.name || !set.id) return null;
+  const localId = card.localId === undefined ? "" : String(card.localId);
+  const artwork = imageUrl(card.image, "high") ?? (card.localId !== undefined ? limitlessImageUrl(set.id, card.localId) : null);
+  return {
+    id: card.id,
+    name: card.name,
+    setName: set.name,
+    setCode: set.id.slice(0, 16),
+    cardNumber: localId,
+    rarity: "COMMON",
+    language,
+    imageUrl: artwork,
+    thumbUrl: imageUrl(card.image, "low") ?? artwork,
+    marketValue: null,
+    priceCurrency: null,
+    sourceAmount: null,
+    sourceCurrency: null,
+  };
+}
+
+async function mapLimit<T, R>(items: T[], limit: number, mapper: (item: T) => Promise<R>): Promise<R[]> {
+  const results = new Array<R>(items.length);
+  let next = 0;
+  async function worker() {
+    while (next < items.length) {
+      const index = next;
+      next += 1;
+      results[index] = await mapper(items[index]);
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, () => worker()));
+  return results;
+}
+
+function pickBestHit(items: CatalogHit[], line: ParsedDeckListLine): CatalogHit | null {
+  const named = items.filter((hit) => cardNamesMatch(hit.name, line.name));
+  if (named.length === 0) return null;
+
+  if (line.setCode) {
+    const setId = tcgDexSetIdForCode(line.setCode);
+    const bySet = named.find(
+      (hit) =>
+        Boolean(setId) &&
+        (hit.setCode.toLowerCase() === setId?.toLowerCase() || hit.id.toLowerCase().startsWith(`${setId}-`)),
+    );
+    if (bySet) return bySet;
+  }
+
+  if (line.cardNumber) {
+    const key = localNumber(line.cardNumber);
+    const byNumber = named.find((hit) => localNumber(hit.cardNumber) === key);
+    if (byNumber) return byNumber;
+  }
+
+  return named[0] ?? null;
+}
+
+async function hitFromSetCard(
+  set: TcgSetImport,
+  card: NonNullable<TcgSetImport["cards"]>[number],
+  language: LanguageValue,
+): Promise<CatalogHit | null> {
+  const brief = setCardToHit(set, card, language);
+  if (!brief) return null;
+  if (brief.imageUrl || !/^energia\b/i.test(brief.name)) return brief;
+  const artwork = await findEnergyArtwork(brief.name, language);
+  return artwork ? { ...brief, imageUrl: artwork, thumbUrl: artwork } : brief;
+}
+
+export async function resolveDeckListLines(lines: ParsedDeckListLine[]) {
+  const sets = new Map<string, Promise<TcgSetImport | null>>();
+
+  function loadSet(language: LanguageValue, setId: string) {
+    const key = `${language}:${setId}`;
+    const pending = sets.get(key);
+    if (pending) return pending;
+    const request = fetchTcg<TcgSetImport>(language, `sets/${setId}`);
+    sets.set(key, request);
+    return request;
+  }
+
+  async function matchInSet(setId: string, line: ParsedDeckListLine): Promise<CatalogHit | null> {
+    for (const language of ["PT_BR", "EN"] as const) {
+      const set = await loadSet(language, setId);
+      const cards = set?.cards ?? [];
+      if (!set || cards.length === 0) continue;
+
+      if (line.cardNumber) {
+        const key = localNumber(line.cardNumber);
+        const numbered = cards.find((card) => localNumber(card.localId) === key);
+        if (numbered && namesCompatible(numbered.name ?? "", line.name)) {
+          return hitFromSetCard(set, numbered, language);
+        }
+      }
+
+      const named = cards.find((card) => namesCompatible(card.name ?? "", line.name));
+      if (named) return hitFromSetCard(set, named, language);
+    }
+    return null;
+  }
+
+  async function resolveLine(line: ParsedDeckListLine): Promise<CatalogHit | null> {
+    if (line.setCode) {
+      const setId = tcgDexSetIdForCode(line.setCode);
+      if (setId) {
+        const fromSet = await matchInSet(setId, line);
+        if (fromSet) return fromSet;
+      }
+    }
+
+    const query = [line.name, line.cardNumber].filter(Boolean).join(" ");
+    const searched = await searchCatalog(query, "PT_BR");
+    const best = pickBestHit(searched.items, line);
+    if (best) return best;
+
+    if (line.cardNumber) {
+      const named = await searchCatalog(line.name, "PT_BR");
+      return pickBestHit(named.items, line);
+    }
+    return null;
+  }
+
+  return mapLimit(lines, 6, async (line) => ({
+    line,
+    hit: await resolveLine(line),
+  }));
 }

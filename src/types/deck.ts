@@ -30,3 +30,9 @@ export type DeckPayload = {
   name: string;
   format: DeckFormatValue;
 };
+
+export type DeckListImportPayload = {
+  name?: string;
+  format: DeckFormatValue;
+  list: string;
+};

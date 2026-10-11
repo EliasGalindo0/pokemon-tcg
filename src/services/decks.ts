@@ -1,11 +1,11 @@
 import { AppError } from "@/lib/errors";
-import { deckEntriesToListLines, formatDeckList } from "@/lib/deck-list";
+import { deckEntriesToListLines, formatDeckList, inferDeckName, parseDeckList } from "@/lib/deck-list";
 import { DECK_FORMATS, isOneOf, type DeckFormatValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
-import { fetchCatalogCard, findEnergyArtwork } from "@/services/catalog";
+import { fetchCatalogCard, findEnergyArtwork, resolveDeckListLines } from "@/services/catalog";
 import type { CatalogHit } from "@/types/catalog";
-import type { DeckDetail, DeckEntryDTO, DeckPayload, DeckSummary } from "@/types/deck";
+import type { DeckDetail, DeckEntryDTO, DeckListImportPayload, DeckPayload, DeckSummary } from "@/types/deck";
 
 function entryImage(entry: {
   imageUrl?: string | null;
@@ -319,4 +319,76 @@ export async function buildDeckListText(userId: string, deckId: string) {
   );
 
   return formatDeckList(deck.name, deckEntriesToListLines(enriched));
+}
+
+async function upsertCatalogHit(userId: string, deckId: string, hit: CatalogHit, quantity: number) {
+  const owned = await matchingCollectionCard(userId, hit);
+  if (owned) {
+    await prisma.deckEntry.upsert({
+      where: { deckId_cardId: { deckId, cardId: owned.id } },
+      create: { deckId, cardId: owned.id, quantity },
+      update: { quantity },
+    });
+    return;
+  }
+
+  const imageUrl = hit.imageUrl ?? (await findEnergyArtwork(hit.name, "PT_BR"));
+  await prisma.deckEntry.upsert({
+    where: { deckId_tcgId: { deckId, tcgId: hit.id } },
+    create: {
+      deckId,
+      tcgId: hit.id,
+      quantity,
+      name: hit.name,
+      setName: hit.setName,
+      cardNumber: hit.cardNumber,
+      imageUrl,
+    },
+    update: {
+      quantity,
+      name: hit.name,
+      setName: hit.setName,
+      cardNumber: hit.cardNumber,
+      imageUrl: imageUrl ?? undefined,
+    },
+  });
+}
+
+export async function createDeckFromList(userId: string, input: DeckListImportPayload) {
+  const parsed = parseDeckList(input.list);
+  if (parsed.lines.length === 0) {
+    throw new AppError("Nenhuma carta encontrada na lista. Use linhas como “4 Zorua do N JTG 97”.", 400);
+  }
+
+  const resolved = await resolveDeckListLines(parsed.lines);
+  const matched = resolved.filter((item) => item.hit);
+
+  if (matched.length === 0) {
+    throw new AppError("Não foi possível encontrar as cartas da lista no catálogo.", 400);
+  }
+
+  const merged = new Map<string, { hit: CatalogHit; quantity: number }>();
+  for (const item of matched) {
+    const hit = item.hit!;
+    const current = merged.get(hit.id);
+    merged.set(hit.id, { hit, quantity: (current?.quantity ?? 0) + item.line.quantity });
+  }
+
+  const name = (input.name?.trim() || parsed.name || inferDeckName(parsed.lines)).slice(0, 80);
+  const deck = await prisma.deck.create({
+    data: { userId, name, format: input.format },
+  });
+
+  for (const { hit, quantity } of merged.values()) {
+    await upsertCatalogHit(userId, deck.id, hit, quantity);
+  }
+
+  await bumpCacheVersion();
+  const detail = await getDeck(userId, deck.id);
+  if (!detail) throw new AppError("Não foi possível abrir o deck importado.", 500);
+
+  return {
+    deck: detail,
+    unmatched: resolved.filter((item) => !item.hit).map((item) => item.line),
+  };
 }

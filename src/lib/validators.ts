@@ -1,7 +1,7 @@
 import { z } from "zod";
 import { CONDITIONS, DECK_FORMATS, LANGUAGES, RARITIES } from "@/lib/labels";
 import type { CardPayload } from "@/types/card";
-import type { DeckPayload } from "@/types/deck";
+import type { DeckListImportPayload, DeckPayload } from "@/types/deck";
 
 function readMoney(value: unknown, empty: "null" | "missing") {
   if (value === undefined || value === null) return empty === "null" ? null : undefined;
@@ -126,6 +126,33 @@ export type DeckParseResult =
 
 export function parseDeckPayload(input: unknown): DeckParseResult {
   const parsed = deckPayloadSchema.safeParse(input);
+  if (!parsed.success) {
+    const fieldErrors: Record<string, string> = {};
+    for (const issue of parsed.error.issues) {
+      const key = issue.path[0];
+      if (typeof key === "string" && !fieldErrors[key]) fieldErrors[key] = issue.message;
+    }
+    return { success: false, fieldErrors };
+  }
+  return { success: true, data: parsed.data };
+}
+
+export const deckListImportSchema = z.object({
+  name: z
+    .string()
+    .trim()
+    .max(80, "Nome muito longo.")
+    .transform((value) => (value.length ? value : undefined)),
+  format: z.enum(DECK_FORMATS, { message: "Formato inválido." }),
+  list: z.string().trim().min(8, "Cole a lista do deck.").max(20_000, "Lista longa demais."),
+});
+
+export type DeckListImportResult =
+  | { success: true; data: DeckListImportPayload }
+  | { success: false; fieldErrors: Record<string, string> };
+
+export function parseDeckListImport(input: unknown): DeckListImportResult {
+  const parsed = deckListImportSchema.safeParse(input);
   if (!parsed.success) {
     const fieldErrors: Record<string, string> = {};
     for (const issue of parsed.error.issues) {

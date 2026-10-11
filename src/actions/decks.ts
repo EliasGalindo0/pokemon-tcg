@@ -4,11 +4,12 @@ import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { AppError } from "@/lib/errors";
 import { requireAdmin } from "@/lib/auth";
-import { parseDeckPayload } from "@/lib/validators";
+import { parseDeckListImport, parseDeckPayload } from "@/lib/validators";
 import {
   addCatalogCardToDeck,
   buildDeckListText,
   createDeck,
+  createDeckFromList,
   deleteDeck,
   setDeckCardQuantity,
   setDeckCatalogQuantity,
@@ -48,6 +49,37 @@ export async function createDeckAction(_prev: DeckActionState, formData: FormDat
 
   invalidate();
   redirect(`/decks/${id}`);
+}
+
+export async function createDeckFromListAction(
+  _prev: DeckActionState,
+  formData: FormData,
+): Promise<DeckActionState> {
+  let user;
+  try {
+    user = await requireAdmin();
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Faça login para continuar." };
+  }
+
+  const parsed = parseDeckListImport(Object.fromEntries(formData.entries()));
+  if (!parsed.success) return { fieldErrors: parsed.fieldErrors, message: "Revise os campos destacados." };
+
+  let id = "";
+  let missing = "";
+  try {
+    const result = await createDeckFromList(user.id, parsed.data);
+    id = result.deck.id;
+    missing = result.unmatched.map((line) => line.name).filter(Boolean).slice(0, 16).join(" · ");
+  } catch (error) {
+    unstable_rethrow(error);
+    return { message: error instanceof AppError ? error.message : "Não foi possível importar o deck." };
+  }
+
+  invalidate();
+  const query = missing ? `?faltando=${encodeURIComponent(missing)}` : "";
+  redirect(`/decks/${id}${query}`);
 }
 
 export async function updateDeckAction(

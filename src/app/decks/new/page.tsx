@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { createDeckAction } from "@/actions/decks";
 import { DeckForm } from "@/components/decks/deck-form";
 import { PageHeader } from "@/components/layout/page-header";
@@ -18,6 +19,12 @@ export default async function NewDeckPage() {
         title="Novo deck"
         description="Dê um nome e escolha o formato. As cartas entram na página seguinte."
       />
+      <p className="text-sm text-muted">
+        Já tem uma lista pronta?{" "}
+        <Link href="/decks/import" className="text-navy hover:underline">
+          Criar a partir de uma decklist
+        </Link>
+      </p>
       <DeckForm action={createDeckAction} submitLabel="Criar deck" />
     </div>
   );
