@@ -127,7 +127,7 @@ export function deckListPrinting(
   tcgId: string | null | undefined,
   setId: string | null | undefined,
   cardNumber: string | null | undefined,
-): { setCode?: string; cardNumber?: string } {
+): { setCode?: string; cardNumber?: string; sourceSetId?: string } {
   let parsedSet = "";
   let parsedLocal = "";
   const id = tcgId?.trim() ?? "";
