@@ -1,5 +1,5 @@
 import { AppError } from "@/lib/errors";
-import { deckEntriesToListLines, formatDeckList } from "@/lib/deck-list";
+import { deckEntriesToListLines, deckListPrinting, formatDeckList } from "@/lib/deck-list";
 import { DECK_FORMATS, isOneOf, type DeckFormatValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
@@ -366,24 +366,49 @@ export async function buildDeckListText(userId: string, deckId: string) {
   const deck = await getDeck(userId, deckId);
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
+  const rows = await prisma.deckEntry.findMany({
+    where: { deckId: deck.id },
+    select: {
+      id: true,
+      tcgId: true,
+      cardNumber: true,
+      card: { select: { cardNumber: true, set: { select: { code: true } } } },
+    },
+  });
+  const byId = new Map(rows.map((row) => [row.id, row]));
+
   const enriched = await Promise.all(
     deck.entries.map(async (entry) => {
+      const row = byId.get(entry.id);
       let category: string | null = null;
       let trainerType: string | null = null;
-      if (entry.tcgId) {
+      let tcgId = row?.tcgId ?? entry.tcgId;
+      let setId = row?.card?.set.code ?? null;
+      let cardNumber = row?.card?.cardNumber ?? row?.cardNumber ?? entry.cardNumber;
+
+      if (tcgId) {
         const hit =
-          (await fetchCatalogCard("PT_BR", entry.tcgId)) ?? (await fetchCatalogCard("EN", entry.tcgId));
-        category = hit?.category ?? null;
-        trainerType = hit?.trainerType ?? null;
+          (await fetchCatalogCard("PT_BR", tcgId)) ?? (await fetchCatalogCard("EN", tcgId));
+        if (hit) {
+          category = hit.category ?? null;
+          trainerType = hit.trainerType ?? null;
+          tcgId = hit.id || tcgId;
+          setId = hit.setCode || setId;
+          cardNumber = cardNumber || hit.cardNumber;
+        }
       }
+
+      const printing = deckListPrinting(tcgId, setId, cardNumber);
       return {
         name: entry.name,
         quantity: entry.quantity,
         category,
         trainerType,
+        setCode: printing.setCode,
+        cardNumber: printing.cardNumber,
       };
     }),
   );
 
-  return formatDeckList(deck.name, deckEntriesToListLines(enriched));
+  return formatDeckList(deckEntriesToListLines(enriched));
 }

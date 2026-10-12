@@ -25,6 +25,10 @@ export const LIMITLESS_SET_TO_TCGDEX: Record<string, string> = {
   MEP: "mep",
 };
 
+const TCGDEX_TO_LIMITLESS: Record<string, string> = Object.fromEntries(
+  Object.entries(LIMITLESS_SET_TO_TCGDEX).map(([abbrev, id]) => [id.toLowerCase(), abbrev]),
+);
+
 export function tcgdxSetIdForAbbrev(setCode: string): string | null {
   const key = setCode.trim().toUpperCase();
   if (!key) return null;
@@ -32,5 +36,17 @@ export function tcgdxSetIdForAbbrev(setCode: string): string | null {
   if (mapped) return mapped;
   const lower = key.toLowerCase();
   if (/^[a-z0-9]+(?:\.[0-9]+)?[a-z]?$/i.test(lower)) return lower;
+  return null;
+}
+
+/** TCGdex set id (`sv09`) or Limitless abbrev (`JTG`) → decklist code. */
+export function limitlessAbbrevForSetId(setId: string): string | null {
+  const key = setId.trim();
+  if (!key) return null;
+  const upper = key.toUpperCase();
+  if (LIMITLESS_SET_TO_TCGDEX[upper]) return upper;
+  const mapped = TCGDEX_TO_LIMITLESS[key.toLowerCase()];
+  if (mapped) return mapped;
+  if (/^[A-Za-z]{2,5}$/.test(key)) return upper;
   return null;
 }

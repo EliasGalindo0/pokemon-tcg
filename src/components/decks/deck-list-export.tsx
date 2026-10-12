@@ -41,7 +41,7 @@ export function DeckListExport({ deckId }: { deckId: string }) {
         <div>
           <h2 className="font-display text-2xl tracking-tight">Lista do deck</h2>
           <p className="mt-1 text-sm text-muted">
-            Gera um texto com Pokémon, Treinador, Estádio e Energia para copiar.
+            Gera Pokémon, Treinador e Energia com código da coleção, número e total de cartas.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
