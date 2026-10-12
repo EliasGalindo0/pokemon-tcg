@@ -5,9 +5,14 @@
 export const LIMITLESS_SET_TO_TCGDEX: Record<string, string> = {
   ASC: "me02.5",
   BLK: "sv10.5b",
+  WHT: "sv10.5w",
   DRI: "sv10",
   JTG: "sv09",
   MEG: "me01",
+  PFL: "me02",
+  POR: "me03",
+  CRI: "me04",
+  PBL: "me05",
   MEW: "sv03.5",
   PAL: "sv02",
   PRE: "sv08.5",
@@ -21,7 +26,7 @@ export const LIMITLESS_SET_TO_TCGDEX: Record<string, string> = {
   TEF: "sv05",
   TWM: "sv06",
   OBF: "sv03",
-  PFL: "sv10.5w",
+  PLB: "bw10",
   MEP: "mep",
 };
 

@@ -7,6 +7,7 @@ import {
   printedCardNumber,
 } from "@/lib/card-number";
 import { AppError } from "@/lib/errors";
+import { limitlessAbbrevForSetId } from "@/lib/pokemon-set-codes";
 import { isOneOf, LANGUAGES, type LanguageValue, type RarityValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion, cacheGet, cacheSet } from "@/lib/redis";
@@ -536,6 +537,27 @@ export async function fetchCatalogCard(language: LanguageValue, id: string): Pro
   const card = await loadCard(catalogLanguage(language), id);
   const hit = card ? toHit(card, language) : null;
   return hit ? priceInBrl(hit) : null;
+}
+
+/** Official decklist code (PFL, PLB) when the static map does not know the set. */
+export async function fetchOfficialSetCode(setId: string): Promise<string | null> {
+  const id = setId.trim();
+  if (!id) return null;
+  const known = limitlessAbbrevForSetId(id);
+  if (known) return known;
+
+  const cacheKey = `set-abbrev:v1:${id.toLowerCase()}`;
+  const cached = await cacheGet<{ code: string | null }>(cacheKey);
+  if (cached) return cached.code;
+
+  type SetCode = { abbreviation?: { official?: string }; tcgOnline?: string };
+  const detail =
+    (await fetchTcg<SetCode>("EN", `sets/${encodeURIComponent(id)}`)) ??
+    (await fetchTcg<SetCode>("PT_BR", `sets/${encodeURIComponent(id)}`));
+  const raw = (detail?.abbreviation?.official || detail?.tcgOnline || "").trim().toUpperCase();
+  const code = /^[A-Z][A-Z0-9]{1,5}$/.test(raw) ? raw : null;
+  await cacheSet(cacheKey, { code }, 60 * 60 * 24 * 14);
+  return code;
 }
 
 export async function fetchTcg<T>(language: LanguageValue, resource: string): Promise<T | null> {

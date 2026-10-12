@@ -3,7 +3,7 @@ import { deckEntriesToListLines, deckListPrinting, formatDeckList } from "@/lib/
 import { DECK_FORMATS, isOneOf, type DeckFormatValue } from "@/lib/labels";
 import { prisma } from "@/lib/prisma";
 import { bumpCacheVersion } from "@/lib/redis";
-import { fetchCatalogCard, findEnergyArtwork } from "@/services/catalog";
+import { fetchCatalogCard, fetchOfficialSetCode, findEnergyArtwork } from "@/services/catalog";
 import {
   assertImportHasCards,
   catalogHitDeckImage,
@@ -399,12 +399,16 @@ export async function buildDeckListText(userId: string, deckId: string) {
       }
 
       const printing = deckListPrinting(tcgId, setId, cardNumber);
+      const setCode =
+        printing.setCode ??
+        (printing.sourceSetId ? await fetchOfficialSetCode(printing.sourceSetId) : null) ??
+        undefined;
       return {
         name: entry.name,
         quantity: entry.quantity,
         category,
         trainerType,
-        setCode: printing.setCode,
+        setCode,
         cardNumber: printing.cardNumber,
       };
     }),

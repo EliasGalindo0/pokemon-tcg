@@ -139,9 +139,11 @@ export function deckListPrinting(
 
   const setCode = limitlessAbbrevForSetId(parsedSet) ?? limitlessAbbrevForSetId(setId ?? "") ?? undefined;
   const number = localNumber(parsedLocal || cardNumber || "");
+  const sourceSetId = parsedSet || setId?.trim() || undefined;
   return {
     setCode,
     cardNumber: number || undefined,
+    sourceSetId,
   };
 }
 
