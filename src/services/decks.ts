@@ -10,6 +10,7 @@ import {
   resolveDeckListLines,
 } from "@/services/deck-list-import";
 import type { ParsedDeckListLine } from "@/lib/deck-list-import";
+import { preservingHistory, withoutHistory } from "@/services/deck-history";
 import type { CatalogHit } from "@/types/catalog";
 import type { DeckDetail, DeckEntryDTO, DeckPayload, DeckSummary } from "@/types/deck";
 
@@ -219,9 +220,11 @@ export async function createDeckFromList(
     }
   }
 
-  for (const { hit, quantity } of totals.values()) {
-    await upsertCatalogEntry(userId, deck.id, hit, quantity);
-  }
+  await withoutHistory(async () => {
+    for (const { hit, quantity } of totals.values()) {
+      await upsertCatalogEntry(userId, deck.id, hit, quantity);
+    }
+  });
 
   await bumpCacheVersion();
   const detail = await getDeck(userId, deck.id);
@@ -270,25 +273,33 @@ export async function setDeckCardQuantity(userId: string, deckId: string, cardId
   const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
+  const existing = await prisma.deckEntry.findUnique({ where: { deckId_cardId: { deckId, cardId } } });
   if (quantity <= 0) {
-    const entry = await prisma.deckEntry.findUnique({ where: { deckId_cardId: { deckId, cardId } } });
-    await prisma.deckEntry.deleteMany({ where: { deckId, cardId } });
-    if (entry && deck.coverEntryId === entry.id) {
-      await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
-    }
-    await bumpCacheVersion();
+    if (!existing) return;
+  } else if (existing?.quantity === quantity) {
     return;
   }
 
-  const card = await prisma.card.findFirst({ where: { id: cardId, userId } });
-  if (!card) throw new AppError("Carta não encontrada na coleção.", 404);
+  await preservingHistory(deckId, async () => {
+    if (quantity <= 0) {
+      await prisma.deckEntry.deleteMany({ where: { deckId, cardId } });
+      if (existing && deck.coverEntryId === existing.id) {
+        await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
+      }
+      await bumpCacheVersion();
+      return;
+    }
 
-  await prisma.deckEntry.upsert({
-    where: { deckId_cardId: { deckId, cardId } },
-    create: { deckId, cardId, quantity },
-    update: { quantity },
+    const card = await prisma.card.findFirst({ where: { id: cardId, userId } });
+    if (!card) throw new AppError("Carta não encontrada na coleção.", 404);
+
+    await prisma.deckEntry.upsert({
+      where: { deckId_cardId: { deckId, cardId } },
+      create: { deckId, cardId, quantity },
+      update: { quantity },
+    });
+    await bumpCacheVersion();
   });
-  await bumpCacheVersion();
 }
 
 async function matchingCollectionCard(userId: string, hit: CatalogHit) {
@@ -308,54 +319,60 @@ export async function addCatalogCardToDeck(userId: string, deckId: string, tcgId
   const hit = (await fetchCatalogCard("PT_BR", tcgId)) ?? (await fetchCatalogCard("EN", tcgId));
   if (!hit) throw new AppError("Carta não encontrada no catálogo.", 404);
 
-  const owned = await matchingCollectionCard(userId, hit);
-  if (owned) {
-    const current = await prisma.deckEntry.findUnique({
-      where: { deckId_cardId: { deckId, cardId: owned.id } },
-    });
-    await setDeckCardQuantity(userId, deckId, owned.id, (current?.quantity ?? 0) + 1);
-    return;
-  }
+  await preservingHistory(deckId, async () => {
+    const owned = await matchingCollectionCard(userId, hit);
+    if (owned) {
+      const current = await prisma.deckEntry.findUnique({
+        where: { deckId_cardId: { deckId, cardId: owned.id } },
+      });
+      await setDeckCardQuantity(userId, deckId, owned.id, (current?.quantity ?? 0) + 1);
+      return;
+    }
 
-  const current = await prisma.deckEntry.findUnique({
-    where: { deckId_tcgId: { deckId, tcgId: hit.id } },
+    const current = await prisma.deckEntry.findUnique({
+      where: { deckId_tcgId: { deckId, tcgId: hit.id } },
+    });
+    const quantity = (current?.quantity ?? 0) + 1;
+    const imageUrl = hit.imageUrl ?? (await findEnergyArtwork(hit.name, "PT_BR"));
+    await prisma.deckEntry.upsert({
+      where: { deckId_tcgId: { deckId, tcgId: hit.id } },
+      create: {
+        deckId,
+        tcgId: hit.id,
+        quantity,
+        name: hit.name,
+        setName: hit.setName,
+        cardNumber: hit.cardNumber,
+        imageUrl,
+      },
+      update: { quantity, imageUrl: imageUrl ?? undefined },
+    });
+    await bumpCacheVersion();
   });
-  const quantity = (current?.quantity ?? 0) + 1;
-  const imageUrl = hit.imageUrl ?? (await findEnergyArtwork(hit.name, "PT_BR"));
-  await prisma.deckEntry.upsert({
-    where: { deckId_tcgId: { deckId, tcgId: hit.id } },
-    create: {
-      deckId,
-      tcgId: hit.id,
-      quantity,
-      name: hit.name,
-      setName: hit.setName,
-      cardNumber: hit.cardNumber,
-      imageUrl,
-    },
-    update: { quantity, imageUrl: imageUrl ?? undefined },
-  });
-  await bumpCacheVersion();
 }
 
 export async function setDeckCatalogQuantity(userId: string, deckId: string, tcgId: string, quantity: number) {
   const deck = await prisma.deck.findFirst({ where: { id: deckId, userId } });
   if (!deck) throw new AppError("Deck não encontrado.", 404);
 
-  if (quantity <= 0) {
-    const existing = await prisma.deckEntry.findUnique({ where: { deckId_tcgId: { deckId, tcgId } } });
-    await prisma.deckEntry.deleteMany({ where: { deckId, tcgId } });
-    if (existing && deck.coverEntryId === existing.id) {
-      await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
+  const existing = await prisma.deckEntry.findUnique({ where: { deckId_tcgId: { deckId, tcgId } } });
+  if (!existing) {
+    if (quantity <= 0) return;
+    throw new AppError("Carta não encontrada neste deck.", 404);
+  }
+  if (existing.quantity === quantity) return;
+
+  await preservingHistory(deckId, async () => {
+    if (quantity <= 0) {
+      await prisma.deckEntry.deleteMany({ where: { deckId, tcgId } });
+      if (deck.coverEntryId === existing.id) {
+        await prisma.deck.update({ where: { id: deckId }, data: { coverEntryId: null } });
+      }
+    } else {
+      await prisma.deckEntry.update({ where: { id: existing.id }, data: { quantity } });
     }
     await bumpCacheVersion();
-    return;
-  }
-
-  const existing = await prisma.deckEntry.findUnique({ where: { deckId_tcgId: { deckId, tcgId } } });
-  if (!existing) throw new AppError("Carta não encontrada neste deck.", 404);
-  await prisma.deckEntry.update({ where: { id: existing.id }, data: { quantity } });
-  await bumpCacheVersion();
+  });
 }
 
 export async function countDecks(userId: string) {

@@ -143,12 +143,24 @@ model Deck {
   format       DeckFormat  @default(STANDARD)
   coverEntryId String?     @unique
   coverEntry   DeckEntry?  @relation("DeckCover", fields: [coverEntryId], references: [id], onDelete: SetNull)
-  createdAt    DateTime    @default(now())
-  updatedAt    DateTime    @updatedAt
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
   entries      DeckEntry[]
+  revisions    DeckRevision[]
 
   @@index([userId])
   @@index([name])
+}
+
+model DeckRevision {
+  id        String   @id @default(cuid())
+  deckId    String
+  deck      Deck     @relation(fields: [deckId], references: [id], onDelete: Cascade)
+  cardCount Int
+  snapshot  Json
+  createdAt DateTime @default(now())
+
+  @@index([deckId, createdAt])
 }
 
 model DeckEntry {

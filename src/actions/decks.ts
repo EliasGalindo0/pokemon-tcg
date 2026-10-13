@@ -17,6 +17,7 @@ import {
   setDeckCover,
   updateDeck,
 } from "@/services/decks";
+import { restoreDeckRevision } from "@/services/deck-history";
 
 export type DeckActionState = {
   message?: string;
@@ -174,6 +175,19 @@ export async function setDeckCoverAction(deckId: string, entryId: string) {
   } catch (error) {
     unstable_rethrow(error);
     const message = error instanceof AppError ? error.message : "Não foi possível definir a capa.";
+    return { ok: false as const, message };
+  }
+}
+
+export async function restoreDeckRevisionAction(deckId: string, revisionId: string) {
+  try {
+    const user = await requireAdmin();
+    await restoreDeckRevision(user.id, deckId, revisionId);
+    invalidate();
+    return { ok: true as const, message: "Versão restaurada. A lista anterior ficou no histórico." };
+  } catch (error) {
+    unstable_rethrow(error);
+    const message = error instanceof AppError ? error.message : "Não foi possível restaurar essa versão.";
     return { ok: false as const, message };
   }
 }

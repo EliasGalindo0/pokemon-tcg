@@ -30,3 +30,11 @@ export type DeckPayload = {
   name: string;
   format: DeckFormatValue;
 };
+
+export type DeckRevisionView = {
+  id: string;
+  createdAt: string;
+  cardCount: number;
+  changes: string[];
+  current: boolean;
+};

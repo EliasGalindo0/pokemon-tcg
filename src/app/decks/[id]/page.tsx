@@ -3,11 +3,13 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { deleteDeckAction, updateDeckAction } from "@/actions/decks";
 import { DeckBuilder } from "@/components/decks/deck-builder";
+import { DeckHistory } from "@/components/decks/deck-history";
 import { DeckListExport } from "@/components/decks/deck-list-export";
 import { DeckTitleEditor } from "@/components/decks/deck-title-editor";
 import { DeleteCardButton } from "@/components/cards/delete-card-button";
 import { requireAdminPage } from "@/lib/auth-page";
 import { DECK_SIZE } from "@/lib/labels";
+import { listDeckRevisions } from "@/services/deck-history";
 import { getDeck } from "@/services/decks";
 
 export const dynamic = "force-dynamic";
@@ -28,6 +30,7 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
   const user = await requireAdminPage(`/decks/${id}`);
   const deck = await getDeck(user.id, id);
   if (!deck) notFound();
+  const revisions = await listDeckRevisions(user.id, deck.id);
 
   const progress = Math.min(100, Math.round((deck.cardCount / DECK_SIZE) * 100));
   const ready = deck.cardCount === DECK_SIZE;
@@ -62,6 +65,8 @@ export default async function DeckPage({ params }: { params: Promise<{ id: strin
       </div>
 
       <DeckBuilder deckId={deck.id} entries={deck.entries} coverEntryId={deck.coverEntryId} />
+
+      <DeckHistory deckId={deck.id} revisions={revisions} />
 
       {deck.entries.length > 0 ? <DeckListExport deckId={deck.id} /> : null}
     </div>
