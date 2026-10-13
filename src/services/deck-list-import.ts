@@ -1,4 +1,4 @@
-import { localIdSearchVariants, printedCardNumber } from "@/lib/card-number";
+import { localIdSearchVariants, localNumber, printedCardNumber } from "@/lib/card-number";
 import { AppError } from "@/lib/errors";
 import type { ParsedDeckListLine } from "@/lib/deck-list-import";
 import { tcgdxSetIdForAbbrev } from "@/lib/pokemon-set-codes";
@@ -47,45 +47,56 @@ async function hitFromId(id: string): Promise<CatalogHit | null> {
   return (await fetchCatalogCard("PT_BR", id)) ?? (await fetchCatalogCard("EN", id));
 }
 
+function sameCollectorNumber(hit: CatalogHit, cardNumber: string) {
+  const wanted = cardNumber.replace(/^0+(?=\d)/, "").toUpperCase();
+  if (!wanted) return false;
+  if (localNumber(hit.cardNumber).toUpperCase() === wanted) return true;
+  const idLocal = hit.id.slice(hit.id.lastIndexOf("-") + 1).replace(/^0+(?=\d)/, "");
+  return idLocal.toUpperCase() === wanted;
+}
+
+/** TCG Live lists are often English while the catalog is Portuguese. The set code plus collector number identifies the card. */
 async function resolveBySetAndNumber(
   setId: string,
   cardNumber: string,
   name: string,
 ): Promise<CatalogHit | null> {
+  const found = new Map<string, CatalogHit>();
   for (const localId of localIdSearchVariants(cardNumber)) {
     const direct = await hitFromId(`${setId}-${localId}`);
-    if (direct && namesMatch(name, direct.name)) return direct;
-    if (direct && !name.trim()) return direct;
+    if (!direct || !sameCollectorNumber(direct, cardNumber)) continue;
+    if (namesMatch(name, direct.name)) return direct;
+    found.set(direct.id, direct);
   }
+  if (found.size === 1) return [...found.values()][0];
 
   const detail = (await loadSet("PT_BR", setId)) ?? (await loadSet("EN", setId));
   if (!detail?.cards?.length) return null;
 
   const official = detail.cardCount?.official ?? 0;
   const wantedKey = cardNumber.replace(/^0+(?=\d)/, "");
+  const numberHits: CatalogHit[] = [];
 
   for (const card of detail.cards) {
     if (!card.id || card.localId === undefined) continue;
     const local = String(card.localId);
     const localKey = local.replace(/^0+(?=\d)/, "");
-    if (localKey === wantedKey) {
-      const hit = await hitFromId(card.id);
-      if (hit && namesMatch(name, hit.name)) return hit;
-    }
-    if (official > 0) {
-      const printed = printedCardNumber(local, official).split("/")[0]?.replace(/^0+(?=\d)/, "");
-      if (printed === wantedKey) {
-        const hit = await hitFromId(card.id);
-        if (hit && namesMatch(name, hit.name)) return hit;
-      }
-    }
+    const printed =
+      official > 0 ? printedCardNumber(local, official).split("/")[0]?.replace(/^0+(?=\d)/, "") : "";
+    if (localKey !== wantedKey && printed !== wantedKey) continue;
+    const hit = await hitFromId(card.id);
+    if (!hit || numberHits.some((item) => item.id === hit.id)) continue;
+    if (namesMatch(name, hit.name)) return hit;
+    numberHits.push(hit);
   }
+
+  if (numberHits.length === 1) return numberHits[0];
+  const namedHit = numberHits.find((hit) => namesMatch(name, hit.name));
+  if (namedHit) return namedHit;
 
   for (const card of detail.cards) {
     if (!card.id || !card.name) continue;
-    if (namesMatch(name, card.name)) {
-      return hitFromId(card.id);
-    }
+    if (namesMatch(name, card.name)) return hitFromId(card.id);
   }
 
   return null;
@@ -101,15 +112,18 @@ async function resolveDeckListLine(line: ParsedDeckListLine): Promise<CatalogHit
       const bySet = await resolveBySetAndNumber(setId, line.cardNumber, name);
       if (bySet) return bySet;
     }
-    const guessed = await hitFromId(`${line.setCode.toLowerCase()}-${line.cardNumber}`);
-    if (guessed && namesMatch(name, guessed.name)) return guessed;
+    for (const localId of localIdSearchVariants(line.cardNumber)) {
+      const guessed = await hitFromId(`${line.setCode.toLowerCase()}-${localId}`);
+      if (guessed && sameCollectorNumber(guessed, line.cardNumber) && namesMatch(name, guessed.name)) {
+        return guessed;
+      }
+    }
+    return null;
   }
 
   const query = line.cardNumber ? `${name} ${line.cardNumber}` : name;
   const search = await searchCatalog(query, "PT_BR");
-  const named = search.items.find((item) => namesMatch(name, item.name));
-  if (named) return named;
-  return search.items[0] ?? null;
+  return search.items.find((item) => namesMatch(name, item.name)) ?? null;
 }
 
 export type ImportDeckLineResult = {

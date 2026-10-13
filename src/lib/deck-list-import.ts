@@ -31,13 +31,13 @@ const SECTION_HEADER =
 
 const TOTAL_LINE = /^total\b/i;
 
-/** Limitless play site: `4 N's Zorua (JTG-97)` */
+/** Limitless play site: `4 N's Zorua (JTG-97)` — set codes may start with a digit (`30C`). */
 const LIMITLESS_PAREN =
-  /^(\d{1,2})\s+(.+?)\s+\(([A-Za-z][A-Za-z0-9.]{1,8})-(\d{1,4}[A-Za-z]?)\)\s*$/;
+  /^(\d{1,2})\s+(.+?)\s+\(([A-Za-z0-9][A-Za-z0-9.]{1,8})-(\d{1,4}[A-Za-z]?)\)\s*$/;
 
-/** Limitless-style: `4 Zorua do N JTG 97` */
+/** Limitless / TCG Live: `4 Zorua do N JTG 97` or `1 Switch 30C 127` */
 const LIMITLESS_CARD =
-  /^(\d{1,2})\s+(.+?)\s+([A-Za-z][A-Za-z0-9]{1,5})\s+(\d{1,4}[A-Za-z]?)\s*$/;
+  /^(\d{1,2})\s+(.+?)\s+([A-Za-z0-9]{2,6})\s+(\d{1,4}[A-Za-z]?)\s*$/;
 
 /** Our export: `4 Zorua do N` */
 const SIMPLE_CARD = /^(\d{1,2})\s+(.+?)\s*$/;

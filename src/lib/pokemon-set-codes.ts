@@ -28,6 +28,8 @@ export const LIMITLESS_SET_TO_TCGDEX: Record<string, string> = {
   OBF: "sv03",
   PLB: "bw10",
   MEP: "mep",
+  MEE: "mee",
+  "30C": "30th",
 };
 
 const TCGDEX_TO_LIMITLESS: Record<string, string> = Object.fromEntries(
